@@ -55,7 +55,7 @@ database. Redis-family backends use `{ storage }` instead of `{ store }`:
 
 ```ts
 import { resolveStorageAdapter } from "@tetrac/login-sdk/storage";
-const storage = await resolveStorageAdapter();   // reads Upstash / Vercel KV / REDIS_URL from env
+const storage = await resolveStorageAdapter();   // reads Upstash / REDIS_URL from env
 ```
 
 ## Client

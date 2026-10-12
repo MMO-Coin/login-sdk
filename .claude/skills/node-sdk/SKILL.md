@@ -49,7 +49,6 @@ three Ledger transports to use it:
   "peerDependencies": {
     "ioredis": "^5.6.0",
     "@upstash/redis": "^1.34.0",
-    "@vercel/kv": "^3.0.0",
     "pg": "^8",
     "mysql2": "^3",
     "better-sqlite3": ">=9",
@@ -60,7 +59,6 @@ three Ledger transports to use it:
   "peerDependenciesMeta": {
     "ioredis": { "optional": true },
     "@upstash/redis": { "optional": true },
-    "@vercel/kv": { "optional": true },
     "pg": { "optional": true },
     "mysql2": { "optional": true },
     "better-sqlite3": { "optional": true },

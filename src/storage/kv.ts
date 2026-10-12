@@ -1,5 +1,4 @@
-// Adapter for @vercel/kv and @upstash/redis — both expose the same surface
-// (get / set with { ex } / del / incr / expire), so one adapter covers both.
+// Adapter for @upstash/redis (get / set with { ex } / del / incr / expire / hash ops).
 import type { StorageAdapter, SetOptions } from "./adapter.js";
 
 export interface KvLike {
@@ -9,7 +8,7 @@ export interface KvLike {
   incr(key: string): Promise<number>;
   expire(key: string, seconds: number): Promise<unknown>;
   getdel<T = string>(key: string): Promise<T | null>;
-  // @upstash/redis and @vercel/kv both take the field map as an OBJECT on hset,
+  // @upstash/redis takes the field map as an OBJECT on hset,
   // and may auto-deserialize values on read (hence the coerce() in the adapter).
   hget<T = string>(key: string, field: string): Promise<T | null>;
   hset(key: string, kv: Record<string, unknown>): Promise<unknown>;
@@ -21,7 +20,7 @@ export interface KvLike {
 class KvAdapter implements StorageAdapter {
   constructor(private readonly client: KvLike) {}
 
-  // Both clients may auto-deserialize JSON, so a stored blob comes back as an object.
+  // @upstash/redis auto-deserializes JSON, so a stored blob comes back as an object.
   // Return strings as-is and re-stringify everything else so it round-trips through JSON.parse.
   private coerce(v: unknown): string | null {
     if (v == null) return null;
@@ -79,9 +78,6 @@ class KvAdapter implements StorageAdapter {
     return out;
   }
 }
-
-/** Wrap a @vercel/kv `kv` instance. */
-export class VercelKVAdapter extends KvAdapter {}
 
 /** Wrap an @upstash/redis `Redis` instance. */
 export class UpstashAdapter extends KvAdapter {}

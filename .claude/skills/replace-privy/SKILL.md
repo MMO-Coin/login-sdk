@@ -91,7 +91,6 @@ Run these in order. Each step is self-contained — verify before moving on.
    | **SQLite / libSQL / Turso** | `createSqliteAuthStore({ client })` | Single-node or edge-replicated. |
    | **Upstash Redis** | `{ storage }` | No existing database. One env var, works on the edge runtime. |
    | **ioredis** (`REDIS_URL`) | `{ storage }` | Local dev, or self-hosted/managed Redis. Node runtime only. |
-   | **Vercel KV** | `{ storage }` | **Legacy.** Vercel sunset it in Oct 2024 and routes it to Upstash now. Works, but don't pick it for a new deployment. |
    | **Mongo / DynamoDB / Convex** | hand-written `AuthStore` | Nothing ships. Use the **`multi-database`** skill — this is real work with real failure modes. |
 
    > **"I already run Postgres/Supabase — do I really need Redis?"** **No.** This used to be the
@@ -132,7 +131,7 @@ Create `app/api/auth/[...action]/route.ts`:
 import { createNextAuthRoutes } from "@tetrac/login-sdk/next";
 import { resolveStorageAdapter } from "@tetrac/login-sdk/storage";
 
-// Picks Upstash / Vercel KV / ioredis from the environment. In production with NO
+// Picks Upstash / ioredis from the environment. In production with NO
 // backend configured it THROWS rather than falling back to a localhost Redis — that
 // fallback would give every serverless instance its own ephemeral store (sessions that
 // neither persist nor are shared). If this throws on deploy, your env vars aren't wired.

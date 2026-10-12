@@ -29,14 +29,7 @@ describe("MemoryAdapter", () => {
 // WI-10 (SERVERSIDE-10): selectStorageBackend is PURE (no client construction), so the
 // production safety-guard is testable without opening a Redis connection.
 describe("selectStorageBackend — production storage guard (WI-10)", () => {
-  const ENV_KEYS = [
-    "NODE_ENV",
-    "REDIS_URL",
-    "VERCEL",
-    "KV_REST_API_URL",
-    "UPSTASH_REDIS_REST_URL",
-    "UPSTASH_REDIS_REST_TOKEN",
-  ];
+  const ENV_KEYS = ["NODE_ENV", "REDIS_URL", "VERCEL", "UPSTASH_REDIS_REST_URL", "UPSTASH_REDIS_REST_TOKEN"];
   let saved: Record<string, string | undefined>;
   beforeEach(() => {
     saved = {};
@@ -74,9 +67,10 @@ describe("selectStorageBackend — production storage guard (WI-10)", () => {
     expect(selectStorageBackend()).toEqual({ kind: "upstash" });
   });
 
-  it("VERCEL / KV_REST_API_URL → vercelkv", () => {
-    process.env.KV_REST_API_URL = "https://kv";
-    expect(selectStorageBackend()).toEqual({ kind: "vercelkv" });
+  it("production + VERCEL but no Upstash env → throws (VERCEL alone is not a backend)", () => {
+    process.env.NODE_ENV = "production";
+    process.env.VERCEL = "1";
+    expect(() => selectStorageBackend()).toThrow(/No storage backend configured in production/);
   });
 
   it("partial Upstash (URL without TOKEN) → warns, and in production still throws", () => {
