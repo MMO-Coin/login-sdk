@@ -9,7 +9,6 @@ const external = [
   "react/jsx-runtime",
   "next",
   "ioredis",
-  "@vercel/kv",
   "@upstash/redis",
   // SQL drivers (ADR-002). The SDK types them STRUCTURALLY (PgLike/MysqlLike/SqliteLike)
   // and never imports them, so these should never appear in the graph at all — listing

@@ -107,14 +107,14 @@ export interface StorageAdapter {
    * SPACE RECLAMATION ONLY — this is NEVER the expiry authority. Every adapter must
    * already make an expired entry invisible on the READ path whether or not this has
    * ever run. An adapter that relies on a sweep for correctness is non-conformant.
-   * Adapters with native, exact expiry (Redis, Upstash, Vercel KV) omit it.
+   * Adapters with native, exact expiry (Redis, Upstash) omit it.
    */
   sweepExpired?(limit?: number): Promise<number>;
 
   /**
    * OPTIONAL. Release pooled connections / handles. Idempotent — calling it twice is
    * safe, and calling it on an adapter that never opened anything is a no-op. Adapters
-   * over a stateless REST client (Upstash, Vercel KV) or an in-process Map omit it.
+   * over a stateless REST client (Upstash) or an in-process Map omit it.
    */
   close?(): Promise<void>;
 }

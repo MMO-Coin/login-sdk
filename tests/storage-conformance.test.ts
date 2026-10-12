@@ -3,7 +3,7 @@
 // This is the acceptance bar for ANY storage backend, and it is the artifact that makes
 // adding Postgres/Mongo/etc. cheap: write ~120 lines, run this, ship. Here it runs
 // against KvAuthStore over MemoryAdapter (the normative reference implementation) and
-// over the mocked Redis/Upstash/Vercel KV adapters — so the suite is proven against the
+// over the mocked Redis/Upstash adapters — so the suite is proven against the
 // backends we already have BEFORE anything new is built on top of it.
 //
 // The mocked KV adapters are a regression baseline, not ground truth: atomicity and

@@ -1,13 +1,13 @@
 // B1 (KV deserialization) + H3 (atomic getdel) storage-adapter tests.
 //
-// In prod both @vercel/kv and @upstash/redis auto-deserialize JSON, so a stored
+// In prod @upstash/redis auto-deserializes JSON, so a stored
 // UserData blob comes back as an OBJECT. The KvAdapter must re-stringify so the
 // JSON.parse consumers in server/session.ts round-trip cleanly.
-import { VercelKVAdapter, UpstashAdapter, type KvLike } from "../src/storage/kv";
+import { UpstashAdapter, type KvLike } from "../src/storage/kv";
 import { MemoryAdapter } from "../src/storage/memory";
 
 // KV-like mock that auto-deserializes: get()/getdel() return the PARSED value
-// (whatever was passed to set), mimicking @vercel/kv and @upstash/redis.
+// (whatever was passed to set), mimicking @upstash/redis.
 function mockKv(): KvLike {
   const store = new Map<string, unknown>();
   const parse = (raw: string): unknown => {
@@ -47,7 +47,7 @@ function mockKv(): KvLike {
 
 describe("KvAdapter (B1) — auto-deserialized JSON round-trip", () => {
   it("get() re-stringifies an object value so JSON.parse(get()) deep-equals it", async () => {
-    const adapter = new VercelKVAdapter(mockKv());
+    const adapter = new UpstashAdapter(mockKv());
     const blob = {
       publicKey: "SoLPubKey1111111111111111111111111111111111",
       email: "user@example.com",
@@ -70,7 +70,7 @@ describe("KvAdapter (B1) — auto-deserialized JSON round-trip", () => {
   });
 
   it("returns null for a missing key", async () => {
-    const adapter = new VercelKVAdapter(mockKv());
+    const adapter = new UpstashAdapter(mockKv());
     expect(await adapter.get("nope")).toBeNull();
   });
 

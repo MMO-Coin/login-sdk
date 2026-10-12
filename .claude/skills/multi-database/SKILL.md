@@ -35,7 +35,7 @@ against real engines, and fixed. **You would be reintroducing solved bugs.**
 | Postgres / Supabase / Neon / RDS / CockroachDB | `createPostgresAuthStore` — **nothing to write** |
 | MySQL / MariaDB | `createMysqlAuthStore` — **nothing to write** |
 | SQLite / libSQL / Turso | `createSqliteAuthStore` — **nothing to write** |
-| Redis / Upstash / Vercel KV | `{ storage }` — **nothing to write** |
+| Redis / Upstash | `{ storage }` — **nothing to write** |
 | **Another SQL engine** (e.g. Oracle, MSSQL) | A **`SqlDialect`** — ~30 lines. See *Adding a SQL dialect*. |
 | **A non-SQL engine** (Mongo, DynamoDB, Firestore, Convex, Durable Objects) | A hand-written **`AuthStore`**. This is the only case where the eight hazards below are yours. |
 
@@ -470,8 +470,6 @@ tenant map); and a long key **cannot be a Convex field name** (64-char cap) — 
   non-null value `get` returns, a naïve adapter on any of these **accepts expired session tokens**.
   This is hazard 2, and it is the single most important line to hold.
 
-Note also: **Vercel KV is a sunset product** (deprecated Oct 2024, now a Marketplace redirect to
-Upstash). The `VercelKVAdapter` still works, but point new deployments at **Upstash**.
 
 ---
 

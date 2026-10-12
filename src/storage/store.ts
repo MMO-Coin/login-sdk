@@ -221,7 +221,7 @@ export interface AuthStore {
 /**
  * Adapts any {@link StorageAdapter} (the Redis-shaped KV port) to an {@link AuthStore}.
  *
- * This is how Redis / Upstash / Vercel KV / Memory keep working unchanged: the SDK's
+ * This is how Redis / Upstash / Memory keep working unchanged: the SDK's
  * server layer talks only to AuthStore, and a KV backend gets wrapped here. The body is
  * the SDK's pre-v0.5.0 session/challenge/rateLimit logic, moved behind the interface —
  * so the Redis keyspace and semantics are exactly what they always were.

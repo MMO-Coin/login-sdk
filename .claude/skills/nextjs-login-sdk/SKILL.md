@@ -229,7 +229,7 @@ app is worse than leaving it off, because `x-forwarded-for` is then caller-suppl
 
 ## Step 5 — Custom `AuthStore` implementations
 
-**If you use `{ storage }` with Redis/Upstash/Vercel KV, skip this** — `KvAuthStore` was updated for
+**If you use `{ storage }` with Redis/Upstash, skip this** — `KvAuthStore` was updated for
 you. This section is only for a hand-written `AuthStore`.
 
 ### Breaking contract changes
