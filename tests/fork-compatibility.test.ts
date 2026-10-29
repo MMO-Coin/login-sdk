@@ -12,7 +12,7 @@ import { deriveAuthPublicKey } from "../src/client/authKey";
 
 // Generated once by the original 0.6.0 package with public test data.
 // Keep these values fixed so a package rename cannot silently change wallet recovery.
-describe("existing terminal wallets", () => {
+describe("existing encrypted wallets", () => {
   it("derives the same encryption and authentication keys", () => {
     const appKey = deriveAppKeyFromPasskey(
       fixture.passphrase,

@@ -8,3 +8,4 @@
 - Preserve key derivation inputs, signed messages, header names, storage keys, database tables, and the shared vault symbol when updating package branding.
 - Keep the original MIT copyright notice.
 - Run the relevant checks before committing. Do not publish to npm or push changes unless the user requests it.
+- Keep host application source, deployment settings, identifiers, domains and account data outside this public repository. Use generic examples in SDK tests and documentation.
