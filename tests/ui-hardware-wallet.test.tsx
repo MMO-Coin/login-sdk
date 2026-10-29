@@ -7,7 +7,7 @@
  * the LoginPanel-level fallback, and that the software path still defaults to
  * `false`/`undefined` (the regression guard for §1.3).
  *
- * The UI components import the `@tetrac/login-sdk/react` subpath (resolved to
+ * The UI components import the `@mmo-coin/login-sdk/react` subpath (resolved to
  * `dist` only after a build), so we mock it virtually and assert the args the
  * panels forward — exactly the unit shape the PRD §8 calls for.
  */
@@ -19,7 +19,7 @@ const mockReveal = jest.fn(async () => undefined);
 let mockUser: { authMethod: string } | null = { authMethod: "wallet" };
 
 jest.mock(
-  "@tetrac/login-sdk/react",
+  "@mmo-coin/login-sdk/react",
   () => ({
     useAuth: () => ({ connectWallet: mockConnectWallet }),
     useExportKey: () => ({

@@ -48,7 +48,7 @@ export function mysqlDialect(): SqlDialect {
       `DELETE FROM ${table} WHERE expires_at <= ? LIMIT ${Math.max(1, limit | 0)}`,
 
     ddl: () => `
--- @tetrac/login-sdk — MySQL schema. Generated; do not hand-edit.
+-- @mmo-coin/login-sdk • MySQL schema. Generated; do not hand-edit.
 --
 -- VARBINARY, not VARCHAR, for every key column. This is NOT stylistic:
 --   • MySQL's default collation is CASE-INSENSITIVE, which would merge two distinct

@@ -6,7 +6,7 @@ import React, { useEffect, useMemo, useState, type CSSProperties } from "react";
 // tsup to inline `useAuth` + `AuthContext` into dist/ui/index.js, producing a
 // second AuthContext instance that <AuthProvider> never populates. Treating the
 // react subpath as external preserves a single shared context at runtime.
-import { useAuth } from "@tetrac/login-sdk/react";
+import { useAuth } from "@mmo-coin/login-sdk/react";
 import type { AuthResult } from "../core/types.js";
 import type { LoginPanelProps, PasskeyGeneratorConfig } from "./types.js";
 import { generateStrongPasskey, DEFAULT_PASSKEY_BYTES } from "./passkey.js";

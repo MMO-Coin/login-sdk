@@ -1,10 +1,10 @@
 // Optional, themeable login UI. The PRD §2.2 calls for a tree-shakeable
-// `@tetrac/login-sdk/ui` entry that closes the "headless gap" without forcing a
+// `@mmo-coin/login-sdk/ui` entry that closes the "headless gap" without forcing a
 // UI on apps that want their own. This is the v0.1 skeleton: it composes three
 // independent method sub-panels and forwards results to the host app.
 //
-// Apps that don't import from `@tetrac/login-sdk/ui` pay nothing for it — the
-// core `@tetrac/login-sdk/react` surface stays untouched.
+// Apps that don't import from `@mmo-coin/login-sdk/ui` pay nothing for it • the
+// core `@mmo-coin/login-sdk/react` surface stays untouched.
 import React, { useCallback, useId, useMemo, useState, type CSSProperties } from "react";
 import { EmailMethod } from "./EmailMethod.js";
 import { WalletMethod } from "./WalletMethod.js";

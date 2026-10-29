@@ -18,5 +18,5 @@ export { MemoryAdapter } from "./memory.js";
 export { resolveStorageAdapter } from "./resolve.js";
 
 // NOTE: the conformance suite is deliberately NOT re-exported here. It ships on its own
-// subpath (@tetrac/login-sdk/storage/conformance) so it can never be pulled into a
-// production server bundle by an `import { ... } from "@tetrac/login-sdk/storage"`.
+// subpath (@mmo-coin/login-sdk/storage/conformance) so it can never be pulled into a
+// production server bundle by an `import { ... } from "@mmo-coin/login-sdk/storage"`.

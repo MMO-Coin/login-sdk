@@ -11,7 +11,7 @@
 // state. Treat the reveal route as security-sensitive — strong CSP, no untrusted
 // third-party scripts.
 import React, { useCallback, useEffect, useMemo, useState, type CSSProperties } from "react";
-import { useExportKey, useUser, type ReauthCredentials } from "@tetrac/login-sdk/react";
+import { useExportKey, useUser, type ReauthCredentials } from "@mmo-coin/login-sdk/react";
 import { buildExportKeyStyles } from "./styles.js";
 import type { ExportKeyPanelProps, ExportKeyPanelSlot } from "./types.js";
 

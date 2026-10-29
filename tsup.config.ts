@@ -28,7 +28,7 @@ const external = [
   // dist/ui/index.js, which would otherwise produce two AuthContext
   // instances at runtime (only the one in dist/react/* is populated by
   // <AuthProvider>).
-  "@tetrac/login-sdk/react",
+  "@mmo-coin/login-sdk/react",
 ];
 
 const shared = {

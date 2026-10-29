@@ -1,4 +1,4 @@
-// Public surface of the Ledger module (@tetrac/login-sdk/ledger).
+// Public surface of the Ledger module (@mmo-coin/login-sdk/ledger).
 //
 // Solana hardware-wallet support. The heavy @ledgerhq packages are OPTIONAL
 // peer deps loaded lazily inside the hook, so importing this subpath costs

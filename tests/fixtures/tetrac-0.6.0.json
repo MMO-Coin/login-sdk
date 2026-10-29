@@ -1,0 +1,20 @@
+{
+  "source": "@tetrac/login-sdk@0.6.0",
+  "note": "Public test data only. This passphrase and secret must never hold funds.",
+  "appId": "mmo-alpha-terminal",
+  "origin": "https://at.mmocoin.pro",
+  "email": "compatibility@example.com",
+  "passphrase": "public-fixture-passphrase-only",
+  "iterations": 600000,
+  "secret": "11111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111",
+  "appKey": "f45fe10fd92a28fc687c425cc12ddd75be8e94828ab95d2515ac0386c4847e40",
+  "ciphertext": "7GE012Mh0LXEYCgr:9Qsyd32FRrRXd_Zj2ZPUBlw5rywxejKuKWLUzXt3a-H6z8LVAZeEXpVONKZV_j0CHQhZnpsbuTCHZnS17OBhoqOwSUm7LeQ4DIaCAt4UR5q-91DDxWWB8VDDZqHJOQrEHFMQAd6GPLrNwTqtohpPyM7ln0KBW5tRywqJVo7DBz-m-kdJZSmaN_mPbeeDELDj",
+  "walletMessage": "Unlock your encrypted TTC wallet keys.\n\nOnly sign this on a site you trust. This signature never leaves your device.\n\nApp: mmo-alpha-terminal\nSite: https://at.mmocoin.pro",
+  "hardwareWalletMessage": "Unlock your encrypted TTC wallet keys. Only sign this on a site you trust. This signature never leaves your device. App: mmo-alpha-terminal Site: https://at.mmocoin.pro",
+  "authPublicKey": "3825eb9c23e4a5984f7ee63de72f20eb5bd811bae84570cf8be9d8fca240ec33",
+  "headers": {
+    "appId": "ttc-app-id",
+    "authToken": "ttc-auth-token",
+    "publicKey": "ttc-public-key"
+  }
+}

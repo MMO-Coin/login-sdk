@@ -21,18 +21,18 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        # engines.node is ">=18" (package.json): test the floor and current LTS.
-        node-version: ["18.x", "20.x"]
+        # Test the supported LTS releases.
+        node-version: ["22.x", "24.x", "26.x"]
 
     # A REAL Redis for the AuthStore conformance suite (tests/storage-conformance-redis.test.ts).
     #
     # MemoryAdapter is the normative reference implementation that every future backend is written
-    # to match — but atomicity and expiry are properties of the ENGINE, and a mock only asserts we
+    # to match • but atomicity and expiry are properties of the ENGINE, and a mock only asserts we
     # mocked Redis the way we imagined it. Running the suite against the real thing is what makes
     # "MemoryAdapter matches Redis" a tested fact instead of a code comment.
     #
     # The suite SKIPS itself when REDIS_URL is unset (so `npm test` works on a laptop with no
-    # Docker) — which means a missing service here would silently reduce it to zero cases. The
+    # Docker) • which means a missing service here would silently reduce it to zero cases. The
     # suite guards against exactly that: in CI it asserts REDIS_URL is set and fails if it isn't.
     services:
       redis:
@@ -46,7 +46,7 @@ jobs:
           --health-retries 5
 
       # A REAL Postgres for the SQL engine (ADR-002). SQLite already runs the full
-      # conformance suite in-process on every `npm test` — this proves the DIALECT
+      # conformance suite in-process on every `npm test` • this proves the DIALECT
       # ABSTRACTION holds: same engine code, different placeholder syntax, different upsert,
       # different DELETE…LIMIT, and all 24 cases still pass. If that's true, adding MySQL
       # really is ~30 lines rather than a security review.
@@ -63,7 +63,7 @@ jobs:
           --health-timeout 5s
           --health-retries 5
 
-      # MySQL is the ACID TEST for ADR-002 — the engine with all three notorious hazards (no
+      # MySQL is the ACID TEST for ADR-002 • the engine with all three notorious hazards (no
       # DELETE…RETURNING, a case-insensitive default collation, silent truncation). It is also
       # the only place two real bugs surfaced: a semicolon inside a DDL comment shattering the
       # schema split, and mysql2 returning VARBINARY as Buffer so every key comparison failed.
@@ -119,8 +119,11 @@ jobs:
       - name: Verify SIWS login message (dist)
         run: node scripts/verify-siws-login.mjs
 
+      - name: Verify package entry points
+        run: npm run verify:package
+
       - name: Test
-        run: npm test
+        run: npm test -- --runInBand
 
       # Non-blocking, and scoped to what actually SHIPS (`--omit=dev`): the published
       # package is `dist` over one runtime dependency, so a dev-toolchain advisory
@@ -128,6 +131,6 @@ jobs:
       # Audit results also track the upstream advisory DB and can change with no code
       # change. Promote to a hard gate by removing `continue-on-error` once the runtime
       # surface is clean.
-      - name: Security audit — runtime deps (non-blocking)
+      - name: Security audit • runtime deps (non-blocking)
         run: npm audit --omit=dev --audit-level=high
         continue-on-error: true

@@ -17,7 +17,7 @@
     "outDir": "dist",
     "baseUrl": ".",
     "paths": {
-      "@tetrac/login-sdk/react": ["./src/react/index.ts"]
+      "@mmo-coin/login-sdk/react": ["./src/react/index.ts"]
     }
   },
   "include": ["src"],

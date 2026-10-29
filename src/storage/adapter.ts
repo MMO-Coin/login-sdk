@@ -46,7 +46,7 @@ export interface SetOptions {
  *
  * Plus: `del` removes the key from BOTH keyspaces (real Redis `DEL` is type-agnostic),
  * and errors PROPAGATE — `null` means "the backend answered, and the key is absent",
- * never "the backend did not answer". Verify with `@tetrac/login-sdk/storage/conformance`.
+ * never "the backend did not answer". Verify with `@mmo-coin/login-sdk/storage/conformance`.
  */
 export interface StorageAdapter {
   /** null when the key is absent OR EXPIRED (invariant 1). */

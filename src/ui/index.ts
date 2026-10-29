@@ -1,8 +1,8 @@
 // Optional UI entry — only loaded when the consumer imports it explicitly:
-//   import { LoginPanel } from "@tetrac/login-sdk/ui";
+//   import { LoginPanel } from "@mmo-coin/login-sdk/ui";
 //
 // Keeping it on its own subpath preserves tree-shaking for apps that ship a
-// fully custom login UI on top of `@tetrac/login-sdk/react`.
+// fully custom login UI on top of `@mmo-coin/login-sdk/react`.
 export { LoginPanel } from "./LoginPanel.js";
 export { ExportKeyPanel } from "./ExportKeyPanel.js";
 // Public CSPRNG helper — lets consumers generate a passkey with the exact SDK

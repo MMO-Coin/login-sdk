@@ -44,7 +44,7 @@ export function sqliteDialect(opts: SqliteDialectOptions = {}): SqlDialect {
       `) RETURNING 1 AS affected`,
 
     ddl: () => `
--- @tetrac/login-sdk — SQLite schema. Generated; do not hand-edit.
+-- @mmo-coin/login-sdk • SQLite schema. Generated; do not hand-edit.
 -- SQLite's default collation is BINARY, so keys compare byte-exactly and 'Acme' ≠ 'acme'.
 -- NEVER declare these columns COLLATE NOCASE: it would merge distinct public keys and
 -- distinct tenants into one row.

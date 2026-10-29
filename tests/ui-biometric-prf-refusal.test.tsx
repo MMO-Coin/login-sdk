@@ -14,7 +14,7 @@
  * straight into the UI, and the button stayed live so the user could retry into the
  * exact same permanent failure.
  *
- * Mocks `@tetrac/login-sdk/react` virtually (the subpath only resolves against dist/
+ * Mocks `@mmo-coin/login-sdk/react` virtually (the subpath only resolves against dist/
  * after a build), matching the sibling ui-* suites.
  */
 import React from "react";
@@ -25,7 +25,7 @@ const mockRegisterWithBiometric = jest.fn();
 const mockLoginWithBiometric = jest.fn();
 
 jest.mock(
-  "@tetrac/login-sdk/react",
+  "@mmo-coin/login-sdk/react",
   () => ({
     useAuth: () => ({
       registerWithBiometric: mockRegisterWithBiometric,

@@ -1,6 +1,6 @@
 // The public SQL surface (ADR-002).
 //
-//   import { createPostgresAuthStore } from "@tetrac/login-sdk/storage/sql";
+//   import { createPostgresAuthStore } from "@mmo-coin/login-sdk/storage/sql";
 //   const store = await createPostgresAuthStore({ client: pool });   // preflight runs here
 //   export const { GET, POST } = createNextAuthRoutes({ store });
 //

@@ -4,7 +4,7 @@
 // third-party backend author can run it under Jest, Vitest, or node:test without taking
 // a dependency on ours:
 //
-//   import { authStoreConformanceCases } from "@tetrac/login-sdk/storage/conformance";
+//   import { authStoreConformanceCases } from "@mmo-coin/login-sdk/storage/conformance";
 //   for (const c of authStoreConformanceCases(() => new MyStore(client))) {
 //     it(c.name, () => c.run());
 //   }

@@ -1,5 +1,5 @@
-// Public types for the optional UI package (`@tetrac/login-sdk/ui`).
-// Kept separate from the headless `@tetrac/login-sdk/react` surface so apps that
+// Public types for the optional UI package (`@mmo-coin/login-sdk/ui`).
+// Kept separate from the headless `@mmo-coin/login-sdk/react` surface so apps that
 // build their own UI never pull these in.
 import type { CSSProperties } from "react";
 import type { AuthMethod, AuthResult, EncryptedWallet } from "../core/types.js";

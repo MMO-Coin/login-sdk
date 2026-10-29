@@ -6,12 +6,12 @@
 // THE BUG (historical)
 // --------------------
 // getAppKey() and the in-memory vault state were shipped in TWO independently-bundled
-// copies: one in dist/client/index.js ("@tetrac/login-sdk/client") and one in
-// dist/react/index.js ("@tetrac/login-sdk/react", consumed by the hooks). tsup builds
+// copies: one in dist/client/index.js ("@mmo-coin/login-sdk/client") and one in
+// dist/react/index.js ("@mmo-coin/login-sdk/react", consumed by the hooks). tsup builds
 // with `splitting:false` and does NOT externalize the internal session module, so
 // src/client/session.ts is INLINED into both bundles. When the vault state was a plain
 // module-scope `var memoryAppKey`, each copy owned its own: login (via the React layer)
-// armed the react copy, while a consumer calling getAppKey() from "@tetrac/login-sdk/client"
+// armed the react copy, while a consumer calling getAppKey() from "@mmo-coin/login-sdk/client"
 // read a different, never-armed copy and got null forever. That made "Register with DEX"
 // throw "Vault is locked" for flows that read getAppKey() from /client.
 //
@@ -68,7 +68,7 @@ beforeAll(() => {
   }
 });
 
-describe("@tetrac/login-sdk vault singleton across subpath bundles (BUILT dist)", () => {
+describe("@mmo-coin/login-sdk vault singleton across subpath bundles (BUILT dist)", () => {
   // The core of fix 2a: state no longer lives in a per-bundle module-scope var.
   it("declares NO private per-bundle `var memoryAppKey` in /client or /react", () => {
     const clientSrc = readFileSync(clientPath, "utf8");
@@ -120,12 +120,12 @@ describe("@tetrac/login-sdk vault singleton across subpath bundles (BUILT dist)"
   });
 
   // CONTRAST: /ui externalizes /react, so it inlines zero vault state and zero slot ref —
-  // it reaches the one populated vault only through the external @tetrac/login-sdk/react.
+  // it reaches the one populated vault only through the external @mmo-coin/login-sdk/react.
   it("/ui inlines NO vault state (externalizes /react)", () => {
     const uiSrc = readFileSync(uiPath, "utf8");
 
     expect(countOccurrences(uiSrc, "memoryAppKey")).toBe(0);
     expect(countOccurrences(uiSrc, VAULT_SLOT)).toBe(0);
-    expect(uiSrc).toMatch(/from\s+["']@tetrac\/login-sdk\/react["']/);
+    expect(uiSrc).toMatch(/from\s+["']@mmo-coin\/login-sdk\/react["']/);
   });
 });

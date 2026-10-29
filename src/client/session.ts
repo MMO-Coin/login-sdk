@@ -38,7 +38,7 @@ export class VaultLockedError extends Error {
 // its code is INLINED into more than one bundle. If the vault state lived in plain
 // module-scope `let`s, each inlined copy would own a SEPARATE memoryAppKey:
 // login() (run through the /react hooks) would arm the react copy while a consumer
-// calling getAppKey() from "@tetrac/login-sdk/client" read a different, never-armed
+// calling getAppKey() from "@mmo-coin/login-sdk/client" read a different, never-armed
 // copy and got null forever ("Vault is locked"). To make every copy operate on ONE
 // runtime state we hang it off a process-global keyed by a cross-realm Symbol.for():
 // both copies resolve the same registered symbol and therefore the same object.

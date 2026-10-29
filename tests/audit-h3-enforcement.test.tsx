@@ -20,7 +20,7 @@ const mockRegisterWithEmail = jest.fn(async () => ({}) as never);
 const mockLoginWithEmail = jest.fn(async () => ({}) as never);
 
 jest.mock(
-  "@tetrac/login-sdk/react",
+  "@mmo-coin/login-sdk/react",
   () => ({
     useAuth: () => ({
       connectWallet: mockConnectWallet,

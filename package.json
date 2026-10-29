@@ -1,15 +1,15 @@
 {
-  "name": "@tetrac/login-sdk",
-  "version": "0.6.2",
-  "description": "Reusable, non-custodial authentication SDK: email/passkey, Web3 wallet, and biometric (WebAuthn PRF) login with client-side wallet generation. Bring your own database — PostgreSQL/Supabase, MySQL, SQLite, or Redis/Upstash.",
+  "name": "@mmo-coin/login-sdk",
+  "version": "0.6.3",
+  "description": "Email, Solana wallet, and passkey authentication with encrypted Solana and EVM wallets. Host your own API and database.",
   "license": "MIT",
-  "homepage": "https://github.com/tetrac-official/tetrac-login-sdk#readme",
+  "homepage": "https://github.com/MMO-Coin/login-sdk#readme",
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/tetrac-official/tetrac-login-sdk.git"
+    "url": "git+https://github.com/MMO-Coin/login-sdk.git"
   },
   "bugs": {
-    "url": "https://github.com/tetrac-official/tetrac-login-sdk/issues"
+    "url": "https://github.com/MMO-Coin/login-sdk/issues"
   },
   "type": "module",
   "sideEffects": false,
@@ -88,11 +88,13 @@
     "smoke:multiapp": "npm run build && node scripts/smoke-multi-app.mjs",
     "verify:siws": "npm run build && node scripts/verify-siws-login.mjs",
     "test:siws": "jest siws-login-message wallet-origin-binding config-defaults audit-crypto ledger-login ledger-envelope-pinning signature-edge-cases auth-client",
-    "prepublishOnly": "npm run build",
     "docker:up": "docker compose -f docker-compose.test.yml up -d --wait",
     "docker:down": "docker compose -f docker-compose.test.yml down -v",
     "test:docker": "npm run docker:up && REDIS_URL=redis://localhost:56379 POSTGRES_URL=postgres://postgres:pw@localhost:55432/tetrac_test MYSQL_URL=mysql://root:pw@localhost:53306/tetrac_test jest ; npm run docker:down",
-    "test:engines": "npm run docker:up && REDIS_URL=redis://localhost:56379 POSTGRES_URL=postgres://postgres:pw@localhost:55432/tetrac_test MYSQL_URL=mysql://root:pw@localhost:53306/tetrac_test jest storage-conformance sql-conformance ; npm run docker:down"
+    "test:engines": "npm run docker:up && REDIS_URL=redis://localhost:56379 POSTGRES_URL=postgres://postgres:pw@localhost:55432/tetrac_test MYSQL_URL=mysql://root:pw@localhost:53306/tetrac_test jest storage-conformance sql-conformance ; npm run docker:down",
+    "prepare": "npm run build",
+    "verify:package": "node scripts/verify-package.mjs",
+    "verify": "npm run format:check && npm run typecheck && npm run build && npm test -- --runInBand && node scripts/verify-siws-login.mjs && npm run verify:package"
   },
   "dependencies": {
     "@noble/hashes": "2.2.0"
@@ -179,7 +181,7 @@
     "viem": "^2.55.0"
   },
   "engines": {
-    "node": ">=18"
+    "node": ">=22.12.0"
   },
   "keywords": [
     "authentication",
@@ -199,5 +201,8 @@
     "redis",
     "session-store",
     "auth"
-  ]
+  ],
+  "publishConfig": {
+    "access": "public"
+  }
 }

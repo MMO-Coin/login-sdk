@@ -3,7 +3,7 @@
 // public key + signMessage pair that `connectWallet` needs.
 import React, { useState, type CSSProperties } from "react";
 // Public subpath import — see EmailMethod.tsx for why we avoid `../react/...`.
-import { useAuth } from "@tetrac/login-sdk/react";
+import { useAuth } from "@mmo-coin/login-sdk/react";
 import type { AuthResult } from "../core/types.js";
 import type { LoginPanelProps, WalletConnector } from "./types.js";
 

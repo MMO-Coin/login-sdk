@@ -48,7 +48,7 @@ export function postgresDialect(opts: PostgresDialectOptions = {}): SqlDialect {
       `) RETURNING 1 AS affected`,
 
     ddl: () => `
--- @tetrac/login-sdk — Postgres schema. Generated; do not hand-edit.
+-- @mmo-coin/login-sdk • Postgres schema. Generated; do not hand-edit.
 -- The column types and keys here are LOAD-BEARING (ADR-002): they are what make lost
 -- writes, collation collisions, and silent truncation structurally impossible.
 

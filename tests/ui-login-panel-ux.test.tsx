@@ -15,7 +15,7 @@
  * assertions. `tests/jest.setup.ts` backs `crypto` with Node's webcrypto, so
  * `crypto.getRandomValues` works for the real-CSPRNG assertions.
  *
- * The UI components import the `@tetrac/login-sdk/react` subpath (resolved to
+ * The UI components import the `@mmo-coin/login-sdk/react` subpath (resolved to
  * `dist` only after a build), so we mock it virtually — exactly as the sibling
  * ui-hardware-wallet suite does.
  */
@@ -27,7 +27,7 @@ const mockRegisterWithEmail = jest.fn(async () => ({}) as never);
 const mockLoginWithEmail = jest.fn(async () => ({}) as never);
 
 jest.mock(
-  "@tetrac/login-sdk/react",
+  "@mmo-coin/login-sdk/react",
   () => ({
     useAuth: () => ({
       connectWallet: mockConnectWallet,
