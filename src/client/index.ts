@@ -23,6 +23,7 @@ export {
   subscribeLock,
   configureVault,
   VaultLockedError,
+  SessionChangedError,
 } from "./session.js";
 export {
   isBiometricAvailable,

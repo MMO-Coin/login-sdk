@@ -36,6 +36,7 @@ import {
   getPbkdf2Iterations,
   getOffchainEnvelope,
   configureVault,
+  captureSessionGuard,
 } from "./session.js";
 import { registerPasskey, derivePasskeySecret, type PasskeyRegistration } from "./webauthn.js";
 import {
@@ -196,6 +197,7 @@ export class AuthClient {
    * once and discards it).
    */
   async deriveAppKey(creds: ReauthCredentials): Promise<string> {
+    const assertCurrent = captureSessionGuard();
     if ("passkey" in creds) {
       const email = getEmail();
       if (!email) throw new Error("No email in session for passkey re-auth");
@@ -215,18 +217,24 @@ export class AuthClient {
         new TextEncoder().encode(keyMessage),
         pinned ? { envelope: pinned as OffchainEnvelope } : undefined,
       );
+      assertCurrent();
       return deriveAppKeyFromSignature(bytesToHex(sig));
     }
     if ("registration" in creds) {
       // Biometric-PRIMARY: the passkey secret IS the app key.
-      return derivePasskeySecret(creds.registration);
+      const appKey = await derivePasskeySecret(creds.registration);
+      assertCurrent();
+      return appKey;
     }
     if ("biometricUnlock" in creds) {
       // Optional unlock layer (ANY account): the secret UNWRAPS the stored app key.
       // A fresh assertion runs every call, so revealSecret keeps its "re-auth to
       // reveal" guarantee and unlock() restarts the auto-lock window as usual.
       const secret = await derivePasskeySecret(creds.biometricUnlock);
-      return unwrapAppKey(creds.biometricUnlock.credentialId, secret);
+      assertCurrent();
+      const appKey = await unwrapAppKey(creds.biometricUnlock.credentialId, secret);
+      assertCurrent();
+      return appKey;
     }
     throw new Error("Invalid re-auth credentials");
   }
@@ -237,14 +245,18 @@ export class AuthClient {
    * how an app re-enables signing after an auto-lock.
    */
   async unlock(creds: ReauthCredentials, validateWith?: EncryptedWallet): Promise<void> {
+    const assertCurrent = captureSessionGuard();
     const appKey = await this.deriveAppKey(creds);
+    assertCurrent();
     if (validateWith) {
       try {
         await decryptWalletSecret(validateWith, appKey);
       } catch {
+        assertCurrent();
         throw new Error("Re-authentication failed — wrong credentials");
       }
     }
+    assertCurrent();
     armAppKey(appKey);
   }
 
@@ -255,15 +267,21 @@ export class AuthClient {
    * "Re-auth to reveal" guarantee (PRD §10).
    */
   async revealSecret(wallet: EncryptedWallet, creds: ReauthCredentials): Promise<string> {
+    const assertCurrent = captureSessionGuard();
     const appKey = await this.deriveAppKey(creds);
+    assertCurrent();
     try {
-      return await decryptWalletSecret(wallet, appKey);
+      const secret = await decryptWalletSecret(wallet, appKey);
+      assertCurrent();
+      return secret;
     } catch {
+      assertCurrent();
       throw new Error("Re-authentication failed — wrong credentials");
     }
   }
 
   private async post<T>(path: string, body: unknown, withAuth = false): Promise<T> {
+    const assertCurrent = captureSessionGuard();
     const res = await fetch(`${this.opts.apiBaseUrl}/${path}`, {
       method: "POST",
       headers: { "content-type": "application/json", ...(withAuth ? this.authHeaders() : {}) },
@@ -271,7 +289,9 @@ export class AuthClient {
       // app's records within a shared Redis/Upstash DB (multi-app, v0.4.0).
       body: JSON.stringify({ appId: this.config.appId, ...(body as Record<string, unknown>) }),
     });
+    assertCurrent();
     const data = await res.json().catch(() => ({}));
+    assertCurrent();
     if (!res.ok) {
       throw new ApiError((data as { error?: string }).error ?? `Request failed (${res.status})`, res.status);
     }
@@ -296,6 +316,7 @@ export class AuthClient {
 
   /** Register an email/passkey account; generates and encrypts wallets client-side. */
   async registerWithEmail(params: { email: string; passkey: string }): Promise<AuthResult> {
+    const assertCurrent = captureSessionGuard();
     // Enforced HERE, not in deriveAppKeyFromPasskey, so it covers integrators who build
     // their own UI instead of using <EmailMethod>. Registration only: loginWithEmail must
     // still derive for an account created before this floor existed, or that user loses
@@ -306,12 +327,14 @@ export class AuthClient {
     const iterations = PBKDF2_ITERATIONS[this.config.securityLevel];
     const appKey = deriveAppKeyFromPasskey(params.passkey, params.email, iterations, this.config.appId);
     const bundle = await generateWalletBundle({ appKey, ...this.walletGen });
+    assertCurrent();
     const identity =
       bundle.solana?.funds ?? Object.values(bundle.solana ?? {})[0] ?? Object.values(bundle.evm ?? {})[0];
     if (!identity) throw new Error("walletGen must produce at least one wallet");
 
     // Prove we hold the identity key we are about to claim (see proveIdentity).
     const proof = await this.proveIdentity(identity, appKey);
+    assertCurrent();
     const result = await this.post<AuthResult>("register", {
       publicKey: identity.publicKey,
       email: params.email,
@@ -321,6 +344,7 @@ export class AuthClient {
       pbkdf2Iterations: iterations, // pin the count per-user so future level changes don't orphan this account
       ...proof,
     });
+    assertCurrent();
     setSession({
       publicKey: result.publicKey,
       authToken: result.authToken,
@@ -333,11 +357,13 @@ export class AuthClient {
 
   /** Log in with email + passkey. Re-derives the app key to unlock wallets. */
   async loginWithEmail(params: { email: string; passkey: string }): Promise<AuthResult> {
+    const assertCurrent = captureSessionGuard();
     // 1) Fetch a single-use challenge + the account's pinned PBKDF2 iteration count.
     const { challenge, pbkdf2Iterations } = await this.post<{ challenge: string; pbkdf2Iterations: number }>(
       "challenge",
       { email: params.email },
     );
+    assertCurrent();
     // 2) Re-derive the appKey with the count the SERVER pinned, and sign the challenge with
     //    the derived auth keypair — the server stores only the matching public key.
     //
@@ -353,6 +379,7 @@ export class AuthClient {
     const appKey = deriveAppKeyFromPasskey(params.passkey, params.email, iterations, this.config.appId);
     const signature = signAuthChallenge(appKey, challenge);
     const result = await this.post<AuthResult>("login", { email: params.email, signature, challenge });
+    assertCurrent();
     setSession({
       publicKey: result.publicKey,
       authToken: result.authToken,
@@ -388,12 +415,15 @@ export class AuthClient {
     identity: EncryptedWallet,
     appKey: string,
   ): Promise<{ signature: string; challenge: string }> {
+    const assertCurrent = captureSessionGuard();
     const { challenge } = await this.post<{ challenge: string }>("challenge", {
       publicKey: identity.publicKey,
     });
+    assertCurrent();
     // Decrypt only to sign, then drop the reference — same discipline as every other
     // signing path here.
     const kp = await toSolanaKeypair(identity, appKey);
+    assertCurrent();
     const message = new TextEncoder().encode(
       walletLoginMessage({ challenge, origin: this.clientOrigin(), address: identity.publicKey }),
     );
@@ -410,6 +440,7 @@ export class AuthClient {
     challenge: string;
     offchainEnvelope?: OffchainEnvelope;
   }> {
+    const assertCurrent = captureSessionGuard();
     // /challenge also returns the account's PINNED off-chain envelope, when it has one —
     // the hardware counterpart of pbkdf2Iterations, and app-key derivation input just the
     // same. Absent for a wallet registering for the first time.
@@ -417,12 +448,14 @@ export class AuthClient {
       challenge: string;
       offchainEnvelope?: OffchainEnvelope;
     }>("challenge", { publicKey });
+    assertCurrent();
     const enc = new TextEncoder();
     // The AUTH signature may cascade freely: it is challenge-bound and stateless, so which
     // envelope produced it does not matter — the server accepts any of them.
     const authSig = await signMessage(
       enc.encode(walletLoginMessage({ challenge, origin: this.clientOrigin(), address: publicKey })),
     );
+    assertCurrent();
     // Hardware wallets derive the key from the newline-free message so the device
     // can clear-sign it (a Ledger rejects newline content / forces blind signing).
     const keyMessage = hardwareWallet
@@ -436,6 +469,7 @@ export class AuthClient {
       enc.encode(keyMessage),
       hardwareWallet ? { envelope: pinned, onEnvelope: (e) => (used = e) } : undefined,
     );
+    assertCurrent();
     return {
       appKey: deriveAppKeyFromSignature(bytesToHex(keySig)),
       signatureHex: bytesToHex(authSig),
@@ -451,16 +485,19 @@ export class AuthClient {
     /** Set true for a hardware wallet (Ledger) — uses the newline-free app-key message. */
     hardwareWallet?: boolean;
   }): Promise<AuthResult> {
+    const assertCurrent = captureSessionGuard();
     const { appKey, signatureHex, challenge, offchainEnvelope } = await this.walletHandshake(
       params.publicKey,
       params.signMessage,
       params.hardwareWallet,
     );
+    assertCurrent();
     const result = await this.post<AuthResult>("login-wallet", {
       publicKey: params.publicKey,
       signature: signatureHex,
       challenge,
     });
+    assertCurrent();
     setSession({ publicKey: result.publicKey, authToken: result.authToken, appKey, offchainEnvelope });
     return result;
   }
@@ -476,14 +513,17 @@ export class AuthClient {
     /** Set true for a hardware wallet (Ledger) — uses the newline-free app-key message. */
     hardwareWallet?: boolean;
   }): Promise<AuthResult> {
+    const assertCurrent = captureSessionGuard();
     const { appKey, signatureHex, challenge, offchainEnvelope } = await this.walletHandshake(
       params.publicKey,
       params.signMessage,
       params.hardwareWallet,
     );
+    assertCurrent();
     // Sent only if the wallet is new; the server ignores it for returning wallets.
     // NO embedded Solana `funds` wallet: the wallet they just connected IS it (web3WalletGen).
     const bundle = await generateWalletBundle({ appKey, ...web3WalletGen(this.walletGen) });
+    assertCurrent();
     const result = await this.post<AuthResult>("connect-wallet", {
       publicKey: params.publicKey,
       signature: signatureHex,
@@ -492,6 +532,7 @@ export class AuthClient {
       // Pin the layout this device signed under, so future derivations do not cascade.
       offchainEnvelope,
     });
+    assertCurrent();
     setSession({ publicKey: result.publicKey, authToken: result.authToken, appKey, offchainEnvelope });
     return result;
   }
@@ -503,14 +544,17 @@ export class AuthClient {
     /** Set true for a hardware wallet (Ledger) — uses the newline-free app-key message. */
     hardwareWallet?: boolean;
   }): Promise<AuthResult> {
+    const assertCurrent = captureSessionGuard();
     const { appKey, signatureHex, challenge, offchainEnvelope } = await this.walletHandshake(
       params.publicKey,
       params.signMessage,
       params.hardwareWallet,
     );
+    assertCurrent();
     // The connected wallet IS the Solana funds identity — generate only the extra wallets
     // (Solana `signing`, EVM). web3WalletGen strips the redundant Solana `funds` role.
     const bundle = await generateWalletBundle({ appKey, ...web3WalletGen(this.walletGen) });
+    assertCurrent();
     const result = await this.post<AuthResult>("register", {
       publicKey: params.publicKey,
       authMethod: "wallet",
@@ -520,6 +564,7 @@ export class AuthClient {
       // Pin the layout this device signed under, so future derivations do not cascade.
       offchainEnvelope,
     });
+    assertCurrent();
     setSession({ publicKey: result.publicKey, authToken: result.authToken, appKey, offchainEnvelope });
     return result;
   }
@@ -530,12 +575,16 @@ export class AuthClient {
   async registerWithBiometric(params: {
     userName: string;
   }): Promise<{ result: AuthResult; registration: PasskeyRegistration }> {
+    const assertCurrent = captureSessionGuard();
     // Throws PrfUnavailableError on an authenticator without PRF — the derived secret IS
     // this account's app key, so there is no passkey to retype and no wallet to re-sign.
     // Callers should catch it and offer email or wallet registration instead.
     const registration = await registerPasskey(this.config.webauthn, params.userName);
+    assertCurrent();
     const appKey = await derivePasskeySecret(registration);
+    assertCurrent();
     const bundle = await generateWalletBundle({ appKey, ...this.walletGen });
+    assertCurrent();
     const identity =
       bundle.solana?.funds ?? Object.values(bundle.solana ?? {})[0] ?? Object.values(bundle.evm ?? {})[0];
     if (!identity) throw new Error("walletGen must produce at least one wallet");
@@ -543,6 +592,7 @@ export class AuthClient {
     // Internal, login-resolvable identifier derived from the credential (never shown to the user).
     const internalEmail = biometricEmail(registration);
     const proof = await this.proveIdentity(identity, appKey);
+    assertCurrent();
     const result = await this.post<AuthResult>("register", {
       publicKey: identity.publicKey,
       email: internalEmail,
@@ -552,19 +602,24 @@ export class AuthClient {
       wallets: flattenBundle(bundle),
       ...proof,
     });
+    assertCurrent();
     setSession({ publicKey: result.publicKey, authToken: result.authToken, appKey });
     return { result, registration };
   }
 
   /** Biometric re-login: unlock the passkey secret and authenticate. */
   async loginWithBiometric(params: { registration: PasskeyRegistration }): Promise<AuthResult> {
+    const assertCurrent = captureSessionGuard();
     // Resolve the internal identity, fetch a challenge, then prove control by signing it
     // with the auth keypair derived from the PRF secret (released by Touch ID).
     const email = biometricEmail(params.registration);
     const { challenge } = await this.post<{ challenge: string }>("challenge", { email });
+    assertCurrent();
     const appKey = await derivePasskeySecret(params.registration);
+    assertCurrent();
     const signature = signAuthChallenge(appKey, challenge);
     const result = await this.post<AuthResult>("login", { email, signature, challenge });
+    assertCurrent();
     setSession({ publicKey: result.publicKey, authToken: result.authToken, appKey });
     return result;
   }

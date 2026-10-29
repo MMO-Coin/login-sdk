@@ -7,7 +7,14 @@
 // each callback at CALL TIME (never captured at render) — so even a lock that
 // races a render can never let a stale key decrypt.
 import { useCallback, useSyncExternalStore } from "react";
-import { getAppKey, lockSnapshot, subscribeLock, touchVault, VaultLockedError } from "../client/session.js";
+import {
+  getAppKey,
+  lockSnapshot,
+  subscribeLock,
+  touchVault,
+  VaultLockedError,
+  captureSessionGuard,
+} from "../client/session.js";
 import { decryptWalletSecret, toSolanaKeypair, withDecryptedKey } from "../client/wallet.js";
 import type { EncryptedWallet } from "../core/types.js";
 
@@ -23,21 +30,41 @@ export function useSigner() {
     const appKey = getAppKey(); // read at call time — null when the vault is locked
     if (!appKey) throw new VaultLockedError();
     touchVault();
-    return decryptWalletSecret(wallet, appKey);
+    const assertCurrent = captureSessionGuard();
+    return decryptWalletSecret(wallet, appKey).then((secret) => {
+      assertCurrent();
+      return secret;
+    });
   }, []);
 
   const solanaKeypair = useCallback((wallet: EncryptedWallet) => {
     const appKey = getAppKey();
     if (!appKey) throw new VaultLockedError();
     touchVault();
-    return toSolanaKeypair(wallet, appKey);
+    const assertCurrent = captureSessionGuard();
+    return toSolanaKeypair(wallet, appKey).then((keypair) => {
+      try {
+        assertCurrent();
+        return keypair;
+      } catch (error) {
+        keypair.secretKey.fill(0);
+        throw error;
+      }
+    });
   }, []);
 
   const sign = useCallback(<T>(wallet: EncryptedWallet, fn: (secret: string) => Promise<T> | T) => {
     const appKey = getAppKey();
     if (!appKey) throw new VaultLockedError();
     touchVault(); // active use extends the unlocked window
-    return withDecryptedKey(wallet, appKey, fn);
+    const assertCurrent = captureSessionGuard();
+    return withDecryptedKey(wallet, appKey, (secret) => {
+      assertCurrent();
+      return fn(secret);
+    }).then((result) => {
+      assertCurrent();
+      return result;
+    });
   }, []);
 
   return { unlocked: !locked, decrypt, solanaKeypair, sign };

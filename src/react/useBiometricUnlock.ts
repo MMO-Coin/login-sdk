@@ -13,7 +13,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useAuthContext } from "./AuthProvider.js";
 import { isBiometricAvailable, hasBiometricUnlock, type PasskeyRegistration } from "../client/index.js";
-import { registerSessionClearHook } from "../client/session.js";
+import { registerSessionClearHook, captureSessionGuard, subscribeLock } from "../client/session.js";
 
 // Non-secret registration descriptor, persisted so unlock()/disable() need no args.
 const REG_KEY = "ttc_biometric_reg";
@@ -97,11 +97,21 @@ export function useBiometricUnlock(): UseBiometricUnlockResult {
     }
   }, []);
 
+  useEffect(
+    () =>
+      subscribeLock(() => {
+        setIsEnabled(hasBiometricUnlock());
+      }),
+    [],
+  );
+
   const enable = useCallback(
     (userName?: string) =>
       run(async () => {
         // Persist the returned (non-secret) registration so unlock/disable work argless.
+        const assertCurrent = captureSessionGuard();
         const reg = await client.enableBiometricUnlock(userName ?? "biometric-unlock");
+        assertCurrent();
         saveReg(reg);
         if (mounted.current) setIsEnabled(true);
       }),
@@ -111,10 +121,12 @@ export function useBiometricUnlock(): UseBiometricUnlockResult {
   const disable = useCallback(
     () =>
       run(async () => {
+        const assertCurrent = captureSessionGuard();
         const reg = loadReg();
         if (reg) await client.disableBiometricUnlock(reg);
-        clearReg();
-        if (mounted.current) setIsEnabled(false);
+        assertCurrent();
+        if (loadReg()?.credentialId === reg?.credentialId) clearReg();
+        if (mounted.current) setIsEnabled(hasBiometricUnlock());
       }),
     [client, run],
   );

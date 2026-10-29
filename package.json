@@ -1,6 +1,6 @@
 {
   "name": "@mmo-coin/login-sdk",
-  "version": "0.6.3",
+  "version": "0.6.4",
   "description": "Email, Solana wallet, and passkey authentication with encrypted Solana and EVM wallets. Host your own API and database.",
   "license": "MIT",
   "homepage": "https://github.com/MMO-Coin/login-sdk#readme",

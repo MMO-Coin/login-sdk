@@ -46,7 +46,7 @@ async function freshSession() {
   return { mod, ...ctx };
 }
 
-function fireStorage(handlers: Handlers, key: string, newValue: string | null) {
+function fireStorage(handlers: Handlers, key: string | null, newValue: string | null) {
   for (const fn of handlers["storage"] ?? []) fn({ key, newValue });
 }
 
@@ -92,5 +92,29 @@ describe("CLIENTVAULT-7 — cross-tab lock via the storage event", () => {
     mod.armAppKey("HOTKEY2");
     mod.lockVault(); // explicit lock — signals siblings via the sentinel
     expect(localStorage.getItem("ttc_lock_signal")).not.toBeNull();
+  });
+});
+
+describe("cross-tab session replacement", () => {
+  it.each(["ttc-auth-token", "ttc-public-key", null])(
+    "locks on a change to %s, including storage.clear()",
+    async (key) => {
+      const { mod, handlers } = await freshSession();
+      mod.configureVault({ autoLockMs: 100000 });
+      mod.armAppKey("public-test-key");
+      const check = mod.captureSessionGuard();
+      fireStorage(handlers, key, key === null ? null : "replacement");
+      expect(mod.getAppKey()).toBeNull();
+      expect(check).toThrow(mod.SessionChangedError);
+    },
+  );
+
+  it("reports locked before another tab's storage event is delivered", async () => {
+    const { mod, localStorage } = await freshSession();
+    mod.configureVault({ autoLockMs: 100000 });
+    mod.setSession({ publicKey: "account-a", authToken: "token-a", appKey: "public-test-key" });
+    localStorage.setItem("ttc-auth-token", "token-b");
+    expect(mod.lockSnapshot()).toBe(false);
+    expect(mod.getAppKey()).toBeNull();
   });
 });

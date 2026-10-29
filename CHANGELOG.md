@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.6.4
+
+- Cancel pending authentication, unlock, reveal, and signing actions after logout, lock, or account changes.
+- Clear revealed keys and cached wallet records when the active account changes.
+- Remove old session metadata and clean up cancelled biometric registrations.
+
 ## 0.6.3
 
 - Package the MMO Coin fork as `@mmo-coin/login-sdk` and point repository links to MMO Coin.

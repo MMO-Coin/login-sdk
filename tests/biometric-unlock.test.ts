@@ -19,6 +19,15 @@ const describeCrypto = subtle ? describe : describe.skip;
 // --- in-memory IndexedDB shim (shared v2 DB; multi-store; supports delete) ---
 
 type StoreMap = Map<string, unknown>;
+let assertionGate: Promise<void> | null = null;
+let writeGate: { wait: Promise<void>; started: () => void } | null = null;
+function deferred<T>() {
+  let resolve!: (value: T) => void;
+  const promise = new Promise<T>((done) => {
+    resolve = done;
+  });
+  return { promise, resolve };
+}
 
 function makeIdbShim() {
   // dbName -> { version, stores: Map<storeName, StoreMap> }
@@ -47,8 +56,14 @@ function makeIdbShim() {
         } = {
           objectStore: () => ({
             put(value: unknown, key: string) {
-              store.set(key, value);
-              queueMicrotask(() => tx.oncomplete?.());
+              const commit = () => {
+                store.set(key, value);
+                queueMicrotask(() => tx.oncomplete?.());
+              };
+              if (writeGate) {
+                writeGate.started();
+                void writeGate.wait.then(commit);
+              } else commit();
             },
             get(key: string) {
               const req: { onsuccess?: () => void; onerror?: () => void; result?: unknown } = {};
@@ -144,6 +159,7 @@ function makeNavigator() {
         getClientExtensionResults: () => (prfSupported ? { prf: { enabled: true } } : {}),
       }),
       get: async () => {
+        if (assertionGate) await assertionGate;
         if (declineAssertion) return null; // user declined / cancelled
         return {
           getClientExtensionResults: () =>
@@ -184,6 +200,8 @@ import {
   clearSession,
   configureVault,
   VaultLockedError,
+  SessionChangedError,
+  setSession,
 } from "../src/client/session";
 
 const cfg = { rpId: "localhost", rpName: "TTC test" };
@@ -343,5 +361,73 @@ describeCrypto("biometric unlock — wrap/unwrap round-trip", () => {
     expect(unlockedKey).toBe(appKey); // unlock recovers the account's real key
     expect(primarySecret).not.toBe(unlockedKey); // ...and that is NOT the raw secret
     expect(primarySecret).toBe(nextPrfHex); // sanity: primary path == raw PRF output
+  });
+});
+
+describeCrypto("biometric operation cancellation", () => {
+  beforeEach(() => {
+    assertionGate = null;
+    writeGate = null;
+    clearSession();
+    localStorage.clear();
+    declineAssertion = false;
+    prfSupported = true;
+    pendingRawId = randomRawId();
+    configureVault({ autoLockMs: 60000 });
+  });
+  afterEach(() => {
+    assertionGate = null;
+    writeGate = null;
+    clearSession();
+  });
+
+  it("does not enable biometric unlock when logout happens during the assertion", async () => {
+    armAppKey("aa".repeat(32));
+    const gate = deferred<void>();
+    assertionGate = gate.promise;
+    const pending = enableBiometricUnlock(cfg, "public-test-user");
+    await Promise.resolve();
+    clearSession();
+    gate.resolve();
+    await expect(pending).rejects.toBeInstanceOf(SessionChangedError);
+    expect(hasBiometricUnlock()).toBe(false);
+    expect(getAppKey()).toBeNull();
+  });
+
+  it("removes an unfinished wrapped key when logout happens during its storage write", async () => {
+    armAppKey("aa".repeat(32));
+    const commit = deferred<void>();
+    const started = deferred<void>();
+    writeGate = { wait: commit.promise, started: () => started.resolve() };
+    const pending = enableBiometricUnlock(cfg, "public-test-user");
+    await started.promise;
+    clearSession();
+    writeGate = null;
+    commit.resolve();
+    await expect(pending).rejects.toBeInstanceOf(SessionChangedError);
+    const blobs = idb.dbs.get("ttc_passkey_store")!.stores.get("unlock_blobs")!;
+    expect(blobs.has(Buffer.from(pendingRawId).toString("base64url"))).toBe(false);
+    expect(hasBiometricUnlock()).toBe(false);
+    expect(getAppKey()).toBeNull();
+  });
+
+  it("does not unlock the old account after an account replacement during the prompt", async () => {
+    const registration = await freshEnable("aa".repeat(32));
+    lockVault();
+    const gate = deferred<void>();
+    assertionGate = gate.promise;
+    const pending = unlockViaBiometric(registration);
+    setSession({ publicKey: "public-account-b", authToken: "public-token-b", appKey: "bb".repeat(32) });
+    gate.resolve();
+    await expect(pending).rejects.toBeInstanceOf(SessionChangedError);
+    expect(getAppKey()).toBe("bb".repeat(32));
+  });
+
+  it("does not remove another credential's marker when disabling an older registration", async () => {
+    const first = await freshEnable("aa".repeat(32));
+    const second = await freshEnable("bb".repeat(32));
+    await disableBiometricUnlock(first);
+    expect(localStorage.getItem("ttc_biometric_unlock")).toBe(second.credentialId);
+    expect(hasBiometricUnlock()).toBe(true);
   });
 });

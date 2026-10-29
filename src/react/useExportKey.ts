@@ -12,6 +12,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { useAuthContext } from "./AuthProvider.js";
 import type { ReauthCredentials } from "../client/authClient.js";
 import type { EncryptedWallet } from "../core/types.js";
+import { captureSessionGuard, SessionChangedError, subscribeSessionInvalidation } from "../client/session.js";
 
 export interface UseExportKeyOptions {
   /**
@@ -44,52 +45,72 @@ export function useExportKey(
 ): UseExportKeyResult {
   const { client } = useAuthContext();
   const { autoClearMs = 30_000 } = options; // auto-clear ON by default; pass 0 to disable
-  const [plaintext, setPlaintext] = useState<string | null>(null);
+  const walletId = JSON.stringify([wallet?.chain, wallet?.role, wallet?.publicKey, wallet?.encryptedSecret]);
+  const activeWalletId = useRef(walletId);
+  activeWalletId.current = walletId;
+  const [revealed, setRevealed] = useState<{ secret: string; walletId: string } | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<Error | null>(null);
   const revealSeq = useRef(0);
+  const mounted = useRef(true);
 
   const clear = useCallback(() => {
     revealSeq.current++;
-    setPlaintext(null);
+    setRevealed(null);
+    setLoading(false);
     setError(null);
   }, []);
 
+  useEffect(() => {
+    mounted.current = true;
+    clear();
+    const unsubscribe = subscribeSessionInvalidation(clear);
+    return () => {
+      mounted.current = false;
+      revealSeq.current++;
+      unsubscribe();
+    };
+  }, [client, walletId, clear]);
+
   const reveal = useCallback(
     async (reauth: ReauthCredentials): Promise<string> => {
+      if (!mounted.current || activeWalletId.current !== walletId) throw new SessionChangedError();
       if (!wallet) {
         const err = new Error("useExportKey: no wallet provided");
         setError(err);
         throw err;
       }
+      const assertCurrent = captureSessionGuard();
       const mySeq = ++revealSeq.current;
+      setRevealed(null);
       setLoading(true);
       setError(null);
       try {
-        // One-time derive + decrypt behind a fresh ceremony. Does NOT arm the session.
         const secret = await client.revealSecret(wallet, reauth);
-        if (mySeq === revealSeq.current) setPlaintext(secret);
+        assertCurrent();
+        if (!mounted.current || mySeq !== revealSeq.current || activeWalletId.current !== walletId) {
+          throw new SessionChangedError();
+        }
+        setRevealed({ secret, walletId });
         return secret;
       } catch (e) {
         const err = e instanceof Error ? e : new Error(String(e));
-        if (mySeq === revealSeq.current) setError(err);
+        if (mounted.current && mySeq === revealSeq.current) setError(err);
         throw err;
       } finally {
-        if (mySeq === revealSeq.current) setLoading(false);
+        if (mounted.current && mySeq === revealSeq.current) setLoading(false);
       }
     },
-    [wallet, client],
+    [wallet, walletId, client],
   );
 
-  // Auto-clear timeout. Resets whenever a fresh plaintext is revealed.
+  // Mask a previous wallet's key during render, before effects perform cleanup.
+  const plaintext = revealed?.walletId === walletId ? revealed.secret : null;
   useEffect(() => {
     if (!plaintext || !autoClearMs) return;
-    const t = setTimeout(() => {
-      revealSeq.current++;
-      setPlaintext(null);
-    }, autoClearMs);
-    return () => clearTimeout(t);
-  }, [plaintext, autoClearMs]);
+    const timer = setTimeout(clear, autoClearMs);
+    return () => clearTimeout(timer);
+  }, [plaintext, autoClearMs, clear]);
 
   return { reveal, clear, plaintext, loading, error };
 }

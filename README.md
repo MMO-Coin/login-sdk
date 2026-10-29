@@ -24,7 +24,7 @@ npm pack
 Install the tarball in your application, adjusting the path to your checkout:
 
 ```bash
-npm i ../login-sdk/mmo-coin-login-sdk-0.6.3.tgz @solana/web3.js tweetnacl
+npm i ../login-sdk/mmo-coin-login-sdk-0.6.4.tgz @solana/web3.js tweetnacl
 ```
 
 React and Next are optional peers. Add them if you use the React or Next entry points.
@@ -95,6 +95,12 @@ retains the original protocol strings, storage names, and `tetrac.vault` symbol 
 If you are moving from version 0.6.0, update the client and server together. Version 0.6.1
 changed the wallet login proof to the Sign In With Solana format. Old and new login proofs
 do not verify across versions.
+
+Pending login, unlock, reveal, and signing actions are cancelled when their session changes or
+locks. The client exports `SessionChangedError` for these cancellations. Check
+`error.name === "SessionChangedError"` across package entry points. Start a new action after
+signing in or unlocking again. Revealed keys and cached wallet records clear when the
+account changes.
 
 ## Configuration
 

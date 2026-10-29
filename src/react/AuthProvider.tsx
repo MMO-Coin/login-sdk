@@ -45,22 +45,31 @@ export function AuthProvider({ children, externalSolanaAddress = null, ...option
   const [email, setEmail] = useState<string | null>(null);
   const [user, setUser] = useState<UserData | null>(null);
   const [userLoading, setUserLoading] = useState(false);
+  const fetchSeq = useRef(0);
+  const activeIdentity = useRef<string | null>(null);
 
   const refresh = useCallback(() => {
+    const nextIdentity = getPublicKey();
+    if (nextIdentity !== activeIdentity.current) {
+      activeIdentity.current = nextIdentity;
+      fetchSeq.current++;
+      setUser(null);
+      setUserLoading(false);
+    }
     setStatus(getAuthStatus());
-    setPublicKey(getPublicKey());
+    setPublicKey(nextIdentity);
     setEmail(getEmail());
   }, []);
 
-  // Track in-flight fetches so a stale response can't overwrite a newer one.
-  const fetchSeq = useRef(0);
-
   const refetchUser = useCallback(async () => {
     const mySeq = ++fetchSeq.current;
+    const requestedIdentity = getPublicKey();
     setUserLoading(true);
     try {
       const fresh = await client.fetchUserData();
-      if (mySeq === fetchSeq.current) setUser(fresh);
+      if (mySeq === fetchSeq.current && requestedIdentity === getPublicKey()) {
+        setUser(fresh?.publicKey === requestedIdentity ? fresh : null);
+      }
     } finally {
       if (mySeq === fetchSeq.current) setUserLoading(false);
     }
@@ -69,6 +78,9 @@ export function AuthProvider({ children, externalSolanaAddress = null, ...option
   // Hydrate from storage on mount (client-only).
   useEffect(() => {
     refresh();
+    return () => {
+      fetchSeq.current++;
+    };
   }, [refresh]);
 
   // Re-read status whenever the vault locks/unlocks (auto-lock, manual lock,
@@ -96,7 +108,7 @@ export function AuthProvider({ children, externalSolanaAddress = null, ...option
       publicKey,
       email,
       refresh,
-      user,
+      user: user?.publicKey === publicKey ? user : null,
       userLoading,
       refetchUser,
       externalSolanaAddress,

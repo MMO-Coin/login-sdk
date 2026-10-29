@@ -69,10 +69,26 @@ try {
 } finally {
   client.lockVault();
 }
+// Cancellation must cross ESM/CommonJS bundle boundaries as well.
+const authClient = client.createAuthClient({
+  apiBaseUrl: "/auth",
+  config: { appId: "package-smoke", origin: "https://smoke.example" },
+});
+let finishDerivation;
+authClient.deriveAppKey = () =>
+  new Promise((resolve) => {
+    finishDerivation = resolve;
+  });
+const pendingUnlock = authClient.unlock({ passkey: "public-package-smoke-passphrase" });
+commonJsClient.clearSession();
+finishDerivation("ab".repeat(32));
+await assert.rejects(pendingUnlock, { name: "SessionChangedError" });
+assert.equal(client.getAppKey(), null, "A stale unlock must not restore the shared key.");
+
 console.log(
   "Verified " +
     pkg.name +
     "@" +
     pkg.version +
-    ": packed exports, ESM, CommonJS, React context, and shared vault.",
+    ": packed exports, ESM, CommonJS, React context, shared vault, and cancellation.",
 );

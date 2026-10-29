@@ -24,7 +24,13 @@
 // same primitive wallet secrets now use). The AES key is HKDF-SHA-256 of the passkey
 // secret (the raw PRF secret is NEVER used directly as a key).
 import type { WebAuthnConfig } from "../core/config.js";
-import { armAppKey, getAppKey, VaultLockedError, registerSessionClearHook } from "./session.js";
+import {
+  armAppKey,
+  getAppKey,
+  VaultLockedError,
+  registerSessionClearHook,
+  captureSessionGuard,
+} from "./session.js";
 import {
   registerPasskey,
   derivePasskeySecret,
@@ -175,12 +181,22 @@ export async function enableBiometricUnlock(
   config: WebAuthnConfig,
   userName: string,
 ): Promise<PasskeyRegistration> {
+  const assertCurrent = captureSessionGuard();
   const appKey = getAppKey();
   if (appKey === null) throw new VaultLockedError();
 
   const registration = await registerPasskey(config, userName); // Touch ID (create)
-  const secret = await derivePasskeySecret(registration); // Touch ID (get) -> hex secret
-  await wrapAppKey(registration.credentialId, secret, appKey);
+  assertCurrent();
+  const secret = await derivePasskeySecret(registration);
+  assertCurrent();
+  try {
+    await wrapAppKey(registration.credentialId, secret, appKey);
+    assertCurrent();
+  } catch (error) {
+    // Logout may have happened before the marker existed, so remove this unfinished wrap.
+    await blobDelete(registration.credentialId).catch(() => {});
+    throw error;
+  }
 
   // Sync marker so hasBiometricUnlock() works without touching IndexedDB.
   if (hasWindow()) localStorage.setItem(MARKER_KEY, registration.credentialId);
@@ -193,8 +209,11 @@ export async function enableBiometricUnlock(
  * blob/registration exists, the blob is tampered, or the assertion is declined.
  */
 export async function unlockViaBiometric(registration: PasskeyRegistration): Promise<void> {
-  const secret = await derivePasskeySecret(registration); // Touch ID
+  const assertCurrent = captureSessionGuard();
+  const secret = await derivePasskeySecret(registration);
+  assertCurrent();
   const appKey = await unwrapAppKey(registration.credentialId, secret);
+  assertCurrent();
   armAppKey(appKey);
 }
 
@@ -215,7 +234,7 @@ export async function disableBiometricUnlock(registration: PasskeyRegistration):
  * purge can't leave hasBiometricUnlock() reporting true.
  */
 async function purge(credentialId: string): Promise<void> {
-  if (hasWindow()) localStorage.removeItem(MARKER_KEY);
+  if (hasWindow() && localStorage.getItem(MARKER_KEY) === credentialId) localStorage.removeItem(MARKER_KEY);
   await blobDelete(credentialId);
 }
 

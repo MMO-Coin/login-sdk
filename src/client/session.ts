@@ -62,6 +62,9 @@ interface VaultState {
    *  a logout through ANY copy fires every registered hook. Kept here (not imported
    *  by session.ts) so feature modules register without creating an import cycle. */
   clearHooks: Set<() => void>;
+  generation: number;
+  owner?: { token: string | null; publicKey: string | null } | null;
+  invalidationListeners: Set<() => void>;
 }
 
 const VAULT_STATE_KEY = Symbol.for("tetrac.vault");
@@ -85,6 +88,8 @@ function resolveVaultState(): VaultState {
       hideHandlerBound: false,
       listeners: new Set<() => void>(),
       clearHooks: new Set<() => void>(),
+      generation: 0,
+      invalidationListeners: new Set<() => void>(),
     };
     // Non-enumerable so it stays out of for-in / JSON of globalThis. Left
     // configurable so a test harness can delete the slot to simulate a page
@@ -97,6 +102,9 @@ function resolveVaultState(): VaultState {
       configurable: true,
     });
   }
+  // An older SDK bundle may have created the shared slot first.
+  state.generation ??= 0;
+  state.invalidationListeners ??= new Set();
   return state;
 }
 
@@ -118,6 +126,55 @@ export function registerSessionClearHook(fn: () => void): () => void {
 
 const hasWindow = (): boolean => typeof window !== "undefined";
 const nowMs = (): number => Date.now();
+
+export class SessionChangedError extends Error {
+  constructor(message = "Session changed or locked. Try again.") {
+    super(message);
+    this.name = "SessionChangedError";
+  }
+}
+
+/** Bind pending work to the current session, including changes made in another tab. */
+export function captureSessionGuard(): () => void {
+  isLocked();
+  const generation = vault.generation;
+  const token = getAuthToken();
+  const publicKey = getPublicKey();
+  return () => {
+    isLocked();
+    if (generation !== vault.generation || token !== getAuthToken() || publicKey !== getPublicKey()) {
+      throw new SessionChangedError();
+    }
+  };
+}
+
+export function subscribeSessionInvalidation(fn: () => void): () => void {
+  vault.invalidationListeners.add(fn);
+  return () => {
+    vault.invalidationListeners.delete(fn);
+  };
+}
+
+function invalidateSessionOperations(): void {
+  vault.generation++;
+  for (const listener of vault.invalidationListeners) {
+    try {
+      listener();
+    } catch {
+      /* A listener must not prevent a lock or logout. */
+    }
+  }
+}
+
+function runSessionClearHooks(): void {
+  for (const hook of vault.clearHooks) {
+    try {
+      hook();
+    } catch {
+      /* Feature cleanup must not prevent session replacement. */
+    }
+  }
+}
 
 function notify(): void {
   for (const cb of vault.listeners) cb();
@@ -170,7 +227,10 @@ function bindHideHandler(): void {
     // (propagate=false — the originating tab already did its part).
     window.addEventListener("storage", (e) => {
       const ev = e as StorageEvent;
-      if ((ev.key === TOKEN_KEY && ev.newValue === null) || ev.key === LOCK_SIGNAL_KEY) {
+      if (
+        ev.key === null ||
+        [TOKEN_KEY, PUBKEY_KEY, EMAIL_KEY, EK_ITER_KEY, EK_ENVELOPE_KEY, LOCK_SIGNAL_KEY].includes(ev.key)
+      ) {
         lockVault(false);
       }
     });
@@ -191,11 +251,13 @@ function scheduleLock(): void {
   vault.lockTimer = setTimeout(() => lockVault(false), ms); // idle lock is per-tab — don't propagate
 }
 
-/** Internal: drop the key from memory without firing listeners. */
+/** Drop the key and cancel pending work before a callback can publish a stale result. */
 function clearKeyState(): void {
   clearTimer();
   vault.memoryAppKey = null;
+  vault.owner = null;
   vault.lockDeadline = null;
+  invalidateSessionOperations();
 }
 
 export function setSession(params: {
@@ -209,19 +271,25 @@ export function setSession(params: {
   offchainEnvelope?: string;
 }): void {
   if (!hasWindow()) return;
+  const accountChanged = getPublicKey() !== params.publicKey;
+  clearKeyState();
+  if (accountChanged) runSessionClearHooks();
   localStorage.setItem(TOKEN_KEY, params.authToken);
   localStorage.setItem(PUBKEY_KEY, params.publicKey);
   if (params.email) localStorage.setItem(EMAIL_KEY, params.email);
+  else localStorage.removeItem(EMAIL_KEY);
   if (typeof params.pbkdf2Iterations === "number") {
     localStorage.setItem(EK_ITER_KEY, String(params.pbkdf2Iterations));
-  }
+  } else localStorage.removeItem(EK_ITER_KEY);
   if (params.offchainEnvelope) localStorage.setItem(EK_ENVELOPE_KEY, params.offchainEnvelope);
+  else localStorage.removeItem(EK_ENVELOPE_KEY);
   armAppKey(params.appKey);
 }
 
 /** Install/refresh the app key and (re)start the auto-lock window. Fires listeners. */
 export function armAppKey(appKey: string): void {
   vault.memoryAppKey = appKey;
+  vault.owner = { token: getAuthToken(), publicKey: getPublicKey() };
   vault.lockDeadline = nowMs() + vault.autoLockMs;
   scheduleLock();
   notify();
@@ -229,7 +297,7 @@ export function armAppKey(appKey: string): void {
 
 /** Extend the unlocked window after a successful sensitive op (signing). */
 export function touchVault(): void {
-  if (!vault.memoryAppKey) return;
+  if (isLocked()) return;
   vault.lockDeadline = nowMs() + vault.autoLockMs;
   scheduleLock();
 }
@@ -243,7 +311,6 @@ export function touchVault(): void {
  * sibling tab that is still in active use.
  */
 export function lockVault(propagate = true): void {
-  const wasUnlocked = !!vault.memoryAppKey;
   clearKeyState();
   if (propagate && hasWindow()) {
     try {
@@ -252,7 +319,7 @@ export function lockVault(propagate = true): void {
       /* best-effort cross-tab signal */
     }
   }
-  if (wasUnlocked) notify();
+  notify();
 }
 
 /**
@@ -263,6 +330,10 @@ export function lockVault(propagate = true): void {
  */
 export function isLocked(): boolean {
   if (!vault.memoryAppKey) return true;
+  if (vault.owner && (vault.owner.token !== getAuthToken() || vault.owner.publicKey !== getPublicKey())) {
+    clearKeyState();
+    return true;
+  }
   if (vault.lockDeadline != null && nowMs() > vault.lockDeadline) {
     clearKeyState(); // silent — the scheduled timer fires the notify
     return true;
@@ -279,6 +350,8 @@ export function isLocked(): boolean {
  */
 export function lockSnapshot(): boolean {
   if (!vault.memoryAppKey) return false;
+  if (vault.owner && (vault.owner.token !== getAuthToken() || vault.owner.publicKey !== getPublicKey()))
+    return false;
   if (vault.lockDeadline != null && nowMs() > vault.lockDeadline) return false;
   return true;
 }
@@ -324,15 +397,7 @@ export function clearSession(): void {
     localStorage.removeItem(EK_ITER_KEY);
     localStorage.removeItem(EK_ENVELOPE_KEY);
   }
-  // Fire feature cleanup hooks (e.g. purge biometric-unlock blobs). Best-effort:
-  // a throwing hook must never block logout.
-  for (const hook of vault.clearHooks) {
-    try {
-      hook();
-    } catch {
-      /* ignore — logout cleanup is best-effort */
-    }
-  }
+  runSessionClearHooks();
   notify();
 }
 
