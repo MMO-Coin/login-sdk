@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.6.5
+
+- Update vulnerable development dependencies and patch the unresolved deepmerge issue locally.
+- Keep Solana v1 support with a patched JSON-RPC dependency and verify browser bundling.
+- Run the full dependency audit as a required check in verification and CI.
+
 ## 0.6.4
 
 - Cancel pending authentication, unlock, reveal, and signing actions after logout, lock, or account changes.

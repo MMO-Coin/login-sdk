@@ -38,3 +38,5 @@ biometric setup; and the React wallet cache.
 `npm audit --omit=dev` reports zero findings. The development tree still has the previously
 reported 18 findings: 1 critical, 3 high, 6 moderate and 8 low. Dependency cleanup remains a
 separate task. Real-device passkey testing and the remote database CI matrix remain to be verified.
+
+The dependency findings above were resolved in version 0.6.5. See the [dependency audit](./dependency-review.md).

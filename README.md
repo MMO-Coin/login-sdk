@@ -24,7 +24,7 @@ npm pack
 Install the tarball in your application, adjusting the path to your checkout:
 
 ```bash
-npm i ../login-sdk/mmo-coin-login-sdk-0.6.4.tgz @solana/web3.js tweetnacl
+npm i ../login-sdk/mmo-coin-login-sdk-0.6.5.tgz @solana/web3.js tweetnacl
 ```
 
 React and Next are optional peers. Add them if you use the React or Next entry points.

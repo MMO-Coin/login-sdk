@@ -149,20 +149,21 @@ the SDK's only runtime dependency.
 
 ## Dependency advisories
 
-The SDK's own runtime footprint is a single package • `@noble/hashes` • and `npm audit --omit=dev`
-against it reports zero vulnerabilities. Advisories can still appear via **peer dependencies** the
-consuming app installs (`viem`, `@solana/web3.js`, `tweetnacl`) and their transitive graphs. Current
-status:
+Run `npm run audit` to check the complete dependency tree, including development tools.
+Verification and CI fail on low, moderate, high or critical advisories. The lockfile records the versions reviewed
+for each release; audit results can change when new advisories are published.
 
-- **`viem` → `ws` (GHSA-96hv-2xvq-fx4p, high • DoS):** fixed. The `viem` peer floor is `^2.55.0`,
-  which resolves `ws ≥ 8.21.0` (the advisory covers `8.0.0–8.20.1`). A fresh install on a consumer
-  therefore resolves a clean tree; keep `viem` at or above that floor.
-- **`@solana/web3.js` (v1) → `jayson` → `uuid` (GHSA-w5hq-g745-h8pq, moderate • missing buffer
-  bounds check):** **accepted risk, not reachable.** The flaw is only triggerable through `uuid`
-  v3/v5/v6 called with a caller-supplied `buf` argument. `jayson` never calls `uuid` that way, and the
-  SDK never calls `jayson`'s affected surface. There is no fix in the `@solana/web3.js` v1 line, which
-  is the line this SDK targets, so the advisory is recorded here rather than resolved.
+The checkout uses three dependency overrides:
 
-Dev-toolchain advisories (`esbuild`, `js-yaml`, `brace-expansion`, etc.) affect the build/test
-environment only and never ship: `files` publishes `dist` alone. CI runs `npm audit --omit=dev` as a
-non-blocking report so a *runtime* regression surfaces while dev-only noise stays out of the gate.
+- Jest uses the local [deepmerge patch](./vendor/deepmerge/README.md) for
+  [GHSA-gcqx-w48m-w2h4](https://github.com/advisories/GHSA-gcqx-w48m-w2h4). The upstream package
+  has no patched release. The original API and MIT license are retained, with regression tests
+  for prototype poisoning and configuration merging.
+- Solana v1 uses Jayson 5.0.0, which removes the affected UUID and stream-json dependencies.
+  Tests cover RPC responses, errors and browser bundling.
+- tsup uses esbuild 0.28.2, outside the affected range for
+  [GHSA-g7r4-m6w7-qqqr](https://github.com/advisories/GHSA-g7r4-m6w7-qqqr).
+
+These overrides apply to this checkout. They do not propagate to applications that install the
+SDK. Applications must audit their own lockfiles and peer dependencies. The SDK's direct runtime
+dependency remains `@noble/hashes`; the local merge patch is excluded from the SDK tarball.
