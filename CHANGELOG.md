@@ -2,6 +2,7 @@
 
 ## 0.6.6
 
+- Close SQL test connections after preflight suites so CI can exit cleanly.
 - Keep package verification compatible with npm 10 when prepare writes build output.
 - Show the email or wallet fallback when packaged login UI encounters an authenticator without PRF.
 - Add native Chromium WebAuthn and PRF tests, including reload, cancellation, tampering and logout races.

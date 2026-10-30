@@ -1,8 +1,8 @@
-// ADR-002 — the SAME conformance suite, the SAME engine code, a DIFFERENT database.
+// ADR-002 • the SAME conformance suite, the SAME engine code, a DIFFERENT database.
 //
 // sql-conformance-sqlite.test.ts proves `SqlAuthStore` is correct. This file proves the
-// DIALECT ABSTRACTION holds: swap `sqliteDialect()` for `postgresDialect()` — a different
-// placeholder syntax, a different upsert clause, a different DELETE…LIMIT — and every one of
+// DIALECT ABSTRACTION holds: swap `sqliteDialect()` for `postgresDialect()` • a different
+// placeholder syntax, a different upsert clause, a different DELETE…LIMIT • and every one of
 // the 24 cases still passes, with **zero changes to the engine**.
 //
 // That is the entire claim of ADR-002, tested. If it holds here, then adding MySQL really is
@@ -22,7 +22,7 @@ import { createPostgresAuthStore, PreflightError } from "../src/storage/sql";
 
 const POSTGRES_URL = process.env.POSTGRES_URL;
 
-// The fail-closed cases need a store whose backend FAILS every query — no real connection
+// The fail-closed cases need a store whose backend FAILS every query • no real connection
 // required, since the point is that the shared engine propagates the error rather than
 // swallowing it. The dialect is irrelevant here (nothing reaches the DB).
 function failingStore(): SqlAuthStore {
@@ -40,6 +40,11 @@ let now = T0;
 let n = 0;
 const pools: Pool[] = [];
 
+// Preflight tests also create pools, so cleanup must cover every describe block.
+afterAll(async () => {
+  await Promise.all(pools.map((pool) => pool.end().catch(() => undefined)));
+});
+
 async function freshStore(): Promise<SqlAuthStore> {
   now = T0;
   const schema = `conf_${++n}_${process.pid}`;
@@ -55,11 +60,7 @@ async function freshStore(): Promise<SqlAuthStore> {
 
 const describePg = POSTGRES_URL ? describe : describe.skip;
 
-describePg("ADR-002 — AuthStore conformance: SqlAuthStore on a REAL Postgres", () => {
-  afterAll(async () => {
-    await Promise.all(pools.map((p) => p.end().catch(() => undefined)));
-  });
-
+describePg("ADR-002 • AuthStore conformance: SqlAuthStore on a REAL Postgres", () => {
   const cases = POSTGRES_URL
     ? authStoreConformanceCases(freshStore, {
         advance: (ms) => {
@@ -79,8 +80,8 @@ describePg("ADR-002 — AuthStore conformance: SqlAuthStore on a REAL Postgres",
   }
 });
 
-describePg("ADR-002 — Postgres preflight", () => {
-  it("🚨 REFUSES the `public` schema — on Supabase that table is served to the internet", async () => {
+describePg("ADR-002 • Postgres preflight", () => {
+  it("🚨 REFUSES the `public` schema • on Supabase that table is served to the internet", async () => {
     const pool = new Pool({ connectionString: POSTGRES_URL, max: 2 });
     pools.push(pool);
     // Supabase auto-generates a PostgREST API over every table in `public`, served to anyone

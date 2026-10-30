@@ -128,7 +128,8 @@ jobs:
         run: npm run verify:package
 
       - name: Test
-        run: npm test -- --runInBand
+        timeout-minutes: 8
+        run: npm test -- --runInBand --detectOpenHandles
 
       - name: Verify Docker test runner
         if: matrix.node-version == '24.x'

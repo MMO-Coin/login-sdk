@@ -1,17 +1,17 @@
-// ADR-002 — the ACID TEST. The same engine, on the hardest database.
+// ADR-002 • the ACID TEST. The same engine, on the hardest database.
 //
 // MySQL is the engine everyone warned about, and it is the one that decides whether ADR-002
 // is real or wishful. It breaks the SDK's contract in three separate ways:
 //
-//   1. NO `DELETE … RETURNING` — so atomic get-and-delete (the ONLY defense against login-
+//   1. NO `DELETE … RETURNING` • so atomic get-and-delete (the ONLY defense against login-
 //      challenge REPLAY) cannot be one statement.
-//   2. A CASE-INSENSITIVE default collation — which would merge two distinct base58 Solana
+//   2. A CASE-INSENSITIVE default collation • which would merge two distinct base58 Solana
 //      addresses, and two distinct tenants ('Acme'/'acme'), into the SAME row.
-//   3. SILENT TRUNCATION in non-strict mode — a clipped UserData blob is invalid JSON, so the
+//   3. SILENT TRUNCATION in non-strict mode • a clipped UserData blob is invalid JSON, so the
 //      record reads back as null and the user is locked out of EVERY wallet in it.
 //
 // If ADR-002 works, all three are absorbed by a ~30-line dialect and the engine code is
-// untouched — and the very same 24 conformance cases that pass on SQLite and Postgres pass
+// untouched • and the very same 24 conformance cases that pass on SQLite and Postgres pass
 // here too. That is what this file asserts.
 //
 // SKIPPED unless MYSQL_URL is set:
@@ -30,7 +30,12 @@ const T0 = 1_700_000_000_000;
 let now = T0;
 const pools: mysql.Pool[] = [];
 
-/** Each case gets a clean database — one shared MySQL, so the cases must not see each other. */
+// Preflight tests also create pools, so cleanup must cover every describe block.
+afterAll(async () => {
+  await Promise.all(pools.map((pool) => pool.end().catch(() => undefined)));
+});
+
+/** Each case gets a clean database • one shared MySQL, so the cases must not see each other. */
 async function freshStore(): Promise<SqlAuthStore> {
   now = T0;
   const pool = mysql.createPool({ uri: MYSQL_URL, connectionLimit: 5, multipleStatements: true });
@@ -41,7 +46,7 @@ async function freshStore(): Promise<SqlAuthStore> {
     await pool.query(`DROP TABLE IF EXISTS ${table}`);
   }
   // mysql2 rejects multi-statement queries, so feed the DDL one statement at a time.
-  // Use the SDK's splitter — a naive `.split(";")` glues the leading comment block onto the
+  // Use the SDK's splitter • a naive `.split(";")` glues the leading comment block onto the
   // first CREATE TABLE, and a "skip lines starting with --" filter then drops that whole chunk,
   // silently leaving the database without its first table. (Ask me how I know.)
   for (const stmt of schemaStatementsFor("mysql")) {
@@ -53,11 +58,7 @@ async function freshStore(): Promise<SqlAuthStore> {
 
 const describeMysql = MYSQL_URL ? describe : describe.skip;
 
-describeMysql("ADR-002 — AuthStore conformance: SqlAuthStore on a REAL MySQL", () => {
-  afterAll(async () => {
-    await Promise.all(pools.map((p) => p.end().catch(() => undefined)));
-  });
-
+describeMysql("ADR-002 • AuthStore conformance: SqlAuthStore on a REAL MySQL", () => {
   const cases = MYSQL_URL
     ? authStoreConformanceCases(freshStore, {
         advance: (ms) => {
@@ -76,8 +77,8 @@ describeMysql("ADR-002 — AuthStore conformance: SqlAuthStore on a REAL MySQL",
   }
 });
 
-describeMysql("ADR-002 — MySQL's three hazards are dead, and the schema proves it", () => {
-  it("🚨 key columns really are BINARY in the live database — 'Acme' and 'acme' cannot merge", async () => {
+describeMysql("ADR-002 • MySQL's three hazards are dead, and the schema proves it", () => {
+  it("🚨 key columns really are BINARY in the live database • 'Acme' and 'acme' cannot merge", async () => {
     const pool = mysql.createPool({ uri: MYSQL_URL, connectionLimit: 2 });
     pools.push(pool);
     await freshStore(); // (re)creates the tables
@@ -91,14 +92,14 @@ describeMysql("ADR-002 — MySQL's three hazards are dead, and the schema proves
     );
     expect(rows.length).toBeGreaterThan(0);
     for (const r of rows) {
-      // varbinary compares BYTES. A character type here — even utf8mb4_bin, which is PAD
-      // SPACE — would let distinct keys collide.
+      // varbinary compares BYTES. A character type here • even utf8mb4_bin, which is PAD
+      // SPACE • would let distinct keys collide.
       expect(String(r.DATA_TYPE).toLowerCase()).toBe("varbinary");
       expect(r.COLLATION_NAME).toBeNull();
     }
   }, 30_000);
 
-  it("🚨 the UserData column is MEDIUMTEXT — TEXT would silently truncate a 64-wallet record", async () => {
+  it("🚨 the UserData column is MEDIUMTEXT • TEXT would silently truncate a 64-wallet record", async () => {
     const pool = mysql.createPool({ uri: MYSQL_URL, connectionLimit: 2 });
     pools.push(pool);
     await freshStore();
@@ -112,7 +113,7 @@ describeMysql("ADR-002 — MySQL's three hazards are dead, and the schema proves
 
   it("🚨 preflight REFUSES to boot when MySQL is not in strict mode", async () => {
     // Silent truncation is an unrecoverable account: the blob becomes invalid JSON, the record
-    // reads back as null, and the user loses every wallet in it — with nothing pointing at the
+    // reads back as null, and the user loses every wallet in it • with nothing pointing at the
     // database. A failed boot is the only defense that actually works.
     const pool = mysql.createPool({ uri: MYSQL_URL, connectionLimit: 2 });
     pools.push(pool);
