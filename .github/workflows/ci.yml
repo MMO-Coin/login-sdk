@@ -105,6 +105,9 @@ jobs:
       - name: Format check
         run: npm run format:check
 
+      - name: Test release scripts
+        run: npm run test:scripts
+
       - name: Typecheck
         run: npm run typecheck
 
@@ -125,6 +128,39 @@ jobs:
       - name: Test
         run: npm test -- --runInBand
 
+      - name: Verify Docker test runner
+        if: matrix.node-version == '24.x'
+        run: npm run test:engines
+
       # Include the tools used to build and test the package.
       - name: Audit dependencies
         run: npm run audit
+
+  consumer-install:
+    name: React ${{ matrix.react }} on ${{ matrix.os }}
+    needs: build-and-test
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 15
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+        react: ["18", "19"]
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v6
+        with:
+          node-version: "24.x"
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build SDK
+        run: npm run build
+
+      - name: Verify clean tarball install
+        run: npm run verify:consumer -- --react=${{ matrix.react }}

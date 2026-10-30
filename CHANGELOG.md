@@ -1,5 +1,12 @@
 # Changelog
 
+## Unreleased
+
+- Preserve Docker test failures, clean up partial starts and support Windows without shell-specific environment syntax.
+- Bind test database ports to localhost so test services are not exposed to the network.
+- Verify actual tarball installs with React 18 and 19 on Linux and Windows in CI.
+- Check consumer type declarations, browser bundles, wallet recovery and dependency audits, and document application-level overrides.
+
 ## 0.6.5
 
 - Update vulnerable development dependencies and patch the unresolved deepmerge issue locally.

@@ -193,6 +193,30 @@ createNextAuthRoutes({ store, config, onWarning: (w) => logger.warn(w.code, w.me
 | `default_app_id` | `appId` left at `"ttc"` • no cross-app key isolation. |
 | `no_requester_identity` | `trustProxyHeaders` false • the per-IP limit is skipped, so abuse controls fall back to keying on caller-supplied identifiers. |
 
+## Release checks
+
+`npm run verify` checks formatting, test scripts, types, the build, unit tests, packaged entry points, clean consumer installs and dependency advisories. The consumer check needs network access. It packs the SDK, installs it in temporary React 18 and 19 projects without legacy peer resolution, and checks ESM/CommonJS imports, React types and context, browser bundling and the original encrypted-wallet fixture. CI runs these consumer checks on Linux and Windows.
+
+Run one consumer version with `npm run verify:consumer -- --react=19`.
+
+For real database tests, run `npm run test:docker` (the full suite) or `npm run test:engines` (storage conformance only). Both commands need Docker Compose v2. Each run starts its own test project, binds the database ports in `docker-compose.test.yml` to localhost, and removes its test containers and volumes afterward. A startup, test or cleanup failure returns a failing exit code. Unit tests run without Docker, with the external-engine cases skipped.
+
+### Application dependency overrides
+
+npm only applies overrides from an application's root `package.json`, so installing this SDK does not carry over this repository's overrides. For the Solana v1 dependency used here, add the following to the application's root manifest and regenerate its lockfile:
+
+```json
+{
+  "overrides": {
+    "@solana/web3.js": {
+      "jayson": "5.0.0"
+    }
+  }
+}
+```
+
+The clean consumer checks use this override and audit each temporary installation. Keep auditing the rest of your application's dependencies separately. See [npm's override rules](https://docs.npmjs.com/cli/v11/configuring-npm/package-json/#overrides).
+
 ## License
 
 MIT. The original Tetrac copyright notice is retained in [LICENSE](./LICENSE).

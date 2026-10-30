@@ -90,12 +90,14 @@
     "test:siws": "jest siws-login-message wallet-origin-binding config-defaults audit-crypto ledger-login ledger-envelope-pinning signature-edge-cases auth-client",
     "docker:up": "docker compose -f docker-compose.test.yml up -d --wait",
     "docker:down": "docker compose -f docker-compose.test.yml down -v",
-    "test:docker": "npm run docker:up && REDIS_URL=redis://localhost:56379 POSTGRES_URL=postgres://postgres:pw@localhost:55432/tetrac_test MYSQL_URL=mysql://root:pw@localhost:53306/tetrac_test jest ; npm run docker:down",
-    "test:engines": "npm run docker:up && REDIS_URL=redis://localhost:56379 POSTGRES_URL=postgres://postgres:pw@localhost:55432/tetrac_test MYSQL_URL=mysql://root:pw@localhost:53306/tetrac_test jest storage-conformance sql-conformance ; npm run docker:down",
+    "test:docker": "node scripts/test-docker.mjs",
+    "test:engines": "node scripts/test-docker.mjs --engines",
     "prepare": "npm run build",
     "verify:package": "node scripts/verify-package.mjs",
-    "verify": "npm run format:check && npm run typecheck && npm run build && npm test -- --runInBand && node scripts/verify-siws-login.mjs && npm run verify:package && npm run audit",
-    "audit": "npm audit --include=dev --audit-level=low"
+    "verify": "npm run format:check && npm run test:scripts && npm run typecheck && npm run build && npm test -- --runInBand && node scripts/verify-siws-login.mjs && npm run verify:package && npm run verify:consumer && npm run audit",
+    "audit": "npm audit --include=dev --audit-level=low",
+    "test:scripts": "node --test scripts/release-checks.test.mjs",
+    "verify:consumer": "node scripts/verify-consumer.mjs"
   },
   "dependencies": {
     "@noble/hashes": "2.2.0"
