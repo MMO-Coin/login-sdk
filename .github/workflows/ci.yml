@@ -1,6 +1,7 @@
 name: CI
 
 on:
+  workflow_dispatch:
   push:
     branches: [main]
   pull_request:
@@ -18,6 +19,7 @@ jobs:
   build-and-test:
     name: Node ${{ matrix.node-version }}
     runs-on: ubuntu-latest
+    timeout-minutes: 20
     strategy:
       fail-fast: false
       matrix:
@@ -164,3 +166,46 @@ jobs:
 
       - name: Verify clean tarball install
         run: npm run verify:consumer -- --react=${{ matrix.react }}
+
+  passkey-browser:
+    name: Native passkeys on ${{ matrix.os }}
+    needs: build-and-test
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 15
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v6
+        with:
+          node-version: "24.x"
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Install Chromium test browser
+        run: npx playwright install --with-deps chromium
+
+      - name: Build SDK
+        run: npm run build
+
+      - name: Typecheck browser tests
+        run: npm run typecheck:browser
+
+      - name: Test native WebAuthn and PRF
+        run: npx playwright test
+
+      - name: Save browser failure artifacts
+        if: failure()
+        uses: actions/upload-artifact@v7
+        with:
+          name: passkey-failures-${{ matrix.os }}
+          path: output/playwright/
+          if-no-files-found: ignore
+          retention-days: 7

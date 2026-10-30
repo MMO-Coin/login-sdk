@@ -17,6 +17,7 @@ Build a local package from this repository:
 
 ```bash
 npm ci
+npx playwright install chromium
 npm run verify
 npm pack
 ```
@@ -24,7 +25,7 @@ npm pack
 Install the tarball in your application, adjusting the path to your checkout:
 
 ```bash
-npm i ../login-sdk/mmo-coin-login-sdk-0.6.5.tgz @solana/web3.js tweetnacl
+npm i ../login-sdk/mmo-coin-login-sdk-0.6.6.tgz @solana/web3.js tweetnacl
 ```
 
 React and Next are optional peers. Add them if you use the React or Next entry points.
@@ -195,11 +196,21 @@ createNextAuthRoutes({ store, config, onWarning: (w) => logger.warn(w.code, w.me
 
 ## Release checks
 
-`npm run verify` checks formatting, test scripts, types, the build, unit tests, packaged entry points, clean consumer installs and dependency advisories. The consumer check needs network access. It packs the SDK, installs it in temporary React 18 and 19 projects without legacy peer resolution, and checks ESM/CommonJS imports, React types and context, browser bundling and the original encrypted-wallet fixture. CI runs these consumer checks on Linux and Windows.
+`npm run verify` checks formatting, test scripts, types, the build, native passkey browser tests, unit tests, packaged entry points, clean consumer installs and dependency advisories. The consumer check needs network access. It packs the SDK, installs it in temporary React 18 and 19 projects without legacy peer resolution, and checks ESM/CommonJS imports, React types and context, browser bundling and the original encrypted-wallet fixture. CI runs these consumer checks on Linux and Windows.
 
 Run one consumer version with `npm run verify:consumer -- --react=19`.
 
 For real database tests, run `npm run test:docker` (the full suite) or `npm run test:engines` (storage conformance only). Both commands need Docker Compose v2. Each run starts its own test project, binds the database ports in `docker-compose.test.yml` to localhost, and removes its test containers and volumes afterward. A startup, test or cleanup failure returns a failing exit code. Unit tests run without Docker, with the external-engine cases skipped.
+
+## Browser passkey checks
+
+Install the test browser once with `npx playwright install chromium` (`--with-deps` on a fresh Linux machine), then run `npm run test:passkeys`. The suite starts its own loopback server with in-memory accounts and uses the built package.
+
+The tests use Chromium's virtual CTAP2 authenticator with native WebAuthn, PRF, WebCrypto and IndexedDB. They cover stable PRF derivation, distinct salts, email-wallet unlock after reload, biometric-primary re-login, unsupported authenticators in both hooks and the packaged login panel, cancelled assertions, tampered wrappers, cross-tab logout and a late credential result after logout. Race tests delay delivery of real browser credentials; they do not fabricate credentials or PRF output.
+
+CI runs the browser suite on Linux and Windows. Failure traces and screenshots are stored under `output/playwright/` and uploaded for seven days. The fixture uses synthetic local accounts only. These checks do not replace testing physical authenticators or other browsers.
+
+The CI workflow supports manual runs from GitHub's Actions page through `workflow_dispatch`. A workflow file being present or active does not prove that a run executed. Check its run result; repository or organization Actions restrictions may require an owner to enable execution.
 
 ### Application dependency overrides
 

@@ -9,3 +9,5 @@ coverage/
 .turbo/
 *.tsbuildinfo
 *.tgz
+
+output/playwright/

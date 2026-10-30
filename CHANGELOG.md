@@ -1,7 +1,10 @@
 # Changelog
 
-## Unreleased
+## 0.6.6
 
+- Show the email or wallet fallback when packaged login UI encounters an authenticator without PRF.
+- Add native Chromium WebAuthn and PRF tests, including reload, cancellation, tampering and logout races.
+- Run passkey browser tests on Linux and Windows, and support manually triggered CI runs.
 - Preserve Docker test failures, clean up partial starts and support Windows without shell-specific environment syntax.
 - Bind test database ports to localhost so test services are not exposed to the network.
 - Verify actual tarball installs with React 18 and 19 on Linux and Windows in CI.

@@ -14,3 +14,5 @@ package-lock.json
 # Prettier would reflow into noise). Format code, not prose. Remove this line if
 # you decide to bring docs under Prettier too.
 *.md
+
+output/playwright/

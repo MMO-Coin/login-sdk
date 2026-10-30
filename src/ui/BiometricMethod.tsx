@@ -1,11 +1,11 @@
 // Biometric (Touch ID / Face ID) sub-panel. Mirrors the pattern documented in
-// USE_IN_CODE.md §4 — if the caller hands us an existing PasskeyRegistration we
+// USE_IN_CODE.md §4 • if the caller hands us an existing PasskeyRegistration we
 // render "Unlock"; otherwise we register and surface the new registration via
 // onPasskeyRegistered so the app can persist it (localStorage / IndexedDB / …).
 import React, { useEffect, useState, type CSSProperties } from "react";
-// Public subpath import — see EmailMethod.tsx for why we avoid `../react/...`.
+// Public subpath import • see EmailMethod.tsx for why we avoid `../react/...`.
 import { useAuth } from "@mmo-coin/login-sdk/react";
-import { isBiometricAvailable, PrfUnavailableError } from "../client/webauthn.js";
+import { isBiometricAvailable } from "../client/webauthn.js";
 import type { AuthResult } from "../core/types.js";
 import type { PasskeyRegistration } from "../client/webauthn.js";
 import type { LoginPanelProps } from "./types.js";
@@ -36,7 +36,7 @@ export function BiometricMethod({
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   // Set when the ceremony reveals the authenticator has no PRF extension. The mount
-  // probe cannot detect this — isBiometricAvailable() only asks whether a platform
+  // probe cannot detect this • isBiometricAvailable() only asks whether a platform
   // authenticator EXISTS (UVPAA), and a device can have Touch ID while lacking PRF.
   // PRF support is reported only in the credential's extension results, so we learn
   // it by attempting, and then retire the option rather than let the user retry into
@@ -73,11 +73,12 @@ export function BiometricMethod({
       }
     } catch (err) {
       const e = err instanceof Error ? err : new Error(String(err));
-      // PrfUnavailableError is a device capability verdict, not a user mistake — and
+      // PrfUnavailableError is a device capability verdict, not a user mistake • and
       // it is permanent for this authenticator. Retire the option and say something a
       // user can act on, instead of surfacing the developer-facing message verbatim.
       // onError still fires so the host app can steer to email / wallet itself.
-      if (e instanceof PrfUnavailableError) setPrfUnsupported(true);
+      // React and UI are separate bundles, so their error constructors can differ.
+      if (e.name === "PrfUnavailableError") setPrfUnsupported(true);
       else setError(e.message);
       onError(e);
     } finally {
