@@ -206,9 +206,13 @@ For real database tests, run `npm run test:docker` (the full suite) or `npm run 
 
 CI listens for pushes to `main` and pull requests targeting `main`. A run started with **Run workflow** uses `workflow_dispatch`; check for a `push` event and the matching commit when verifying automatic execution.
 
-For a new fork, open the repository's **Actions** tab using the owner's account. If GitHub shows the fork activation prompt, enable the workflows there. See [GitHub's fork workflow rules](https://docs.github.com/en/actions/reference/workflows-and-actions/events-that-trigger-workflows#workflows-in-forked-repositories).
+For a new fork, complete these steps using the repository owner's account:
 
-Owners can review **Settings > Actions > General**. Actions must be enabled. A selected-actions policy must allow `actions/checkout@v6`, `actions/setup-node@v6` and `actions/upload-artifact@v7`. **Read repository contents and packages permissions** is sufficient for this CI workflow. See [GitHub's repository Actions settings](https://docs.github.com/en/repositories/managing-your-repositorys-settings-and-features/enabling-features-for-your-repository/managing-github-actions-settings-for-a-repository).
+1. Open the repository's **Actions** tab and accept the fork activation prompt if it appears.
+2. Select **CI** in the sidebar. Click **Enable workflow** if the workflow is disabled.
+3. Open **Settings > Actions > General** and confirm Actions is enabled. For a selected-actions policy, enable **Allow actions created by GitHub**, or explicitly allow `actions/checkout@v6`, `actions/setup-node@v6` and `actions/upload-artifact@v7`. Save any changes.
+
+**Read repository contents and packages permissions** is sufficient for this CI workflow. See [GitHub's fork workflow rules](https://docs.github.com/en/actions/reference/workflows-and-actions/events-that-trigger-workflows#workflows-in-forked-repositories) and [repository Actions settings](https://docs.github.com/en/repositories/managing-your-repositorys-settings-and-features/enabling-features-for-your-repository/managing-github-actions-settings-for-a-repository).
 
 If manual runs pass but a new push creates no run after fork activation, have the owner review the account and repository settings. Record the commit SHA, push time and workflow path for GitHub Support if the settings are already enabled. Keep access tokens out of troubleshooting reports.
 
