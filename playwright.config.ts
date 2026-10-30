@@ -17,10 +17,18 @@ export default defineConfig({
     trace: "retain-on-failure",
     screenshot: "only-on-failure",
   },
-  webServer: {
-    command: "node scripts/passkey-test-server.mjs",
-    url: "http://127.0.0.1:4193",
-    reuseExistingServer: false,
-    timeout: 30_000,
-  },
+  webServer: [
+    {
+      command: "node scripts/passkey-test-server.mjs",
+      url: "http://127.0.0.1:4193",
+      reuseExistingServer: false,
+      timeout: 30_000,
+    },
+    {
+      command: "node scripts/passkey-device-server.mjs",
+      url: "http://127.0.0.1:4194/health",
+      reuseExistingServer: false,
+      timeout: 30_000,
+    },
+  ],
 });

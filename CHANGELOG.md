@@ -2,6 +2,7 @@
 
 ## 0.6.6
 
+- Add a dedicated real-device passkey QA page, redacted local reports and a physical-device checklist.
 - Close SQL test connections after preflight suites so CI can exit cleanly.
 - Keep package verification compatible with npm 10 when prepare writes build output.
 - Show the email or wallet fallback when packaged login UI encounters an authenticator without PRF.

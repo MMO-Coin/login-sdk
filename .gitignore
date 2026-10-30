@@ -11,3 +11,5 @@ coverage/
 *.tgz
 
 output/playwright/
+
+output/passkey-device/

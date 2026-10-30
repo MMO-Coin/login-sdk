@@ -16,3 +16,5 @@ package-lock.json
 *.md
 
 output/playwright/
+
+output/passkey-device/

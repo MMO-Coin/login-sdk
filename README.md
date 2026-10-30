@@ -226,6 +226,12 @@ CI runs the browser suite on Linux and Windows. Failure traces and screenshots a
 
 The CI workflow supports manual runs from GitHub's Actions page through `workflow_dispatch`. A workflow file being present or active does not prove that a run executed. Check its run result; repository or organization Actions restrictions may require an owner to enable execution.
 
+### Physical-device checks
+
+Run `npm run qa:passkeys` to open a dedicated, synthetic-account QA page at http://localhost:4194. For phone access, use a dedicated trusted HTTPS origin and reverse proxy. The page records native registration, unlock, cancellation, reload, background lock and re-login results and exports a redacted local report. See the [real-device checklist](examples/passkey-device/README.md).
+
+Physical results are still required before claiming device support. Reports and generated browser output are ignored by Git.
+
 ### Application dependency overrides
 
 npm only applies overrides from an application's root `package.json`, so installing this SDK does not carry over this repository's overrides. For the Solana v1 dependency used here, add the following to the application's root manifest and regenerate its lockfile:

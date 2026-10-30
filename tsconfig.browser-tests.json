@@ -6,6 +6,11 @@
     "paths": {},
     "rootDir": "."
   },
-  "include": ["playwright.config.ts", "tests/browser/**/*.ts", "tests/browser/**/*.tsx"],
+  "include": [
+    "playwright.config.ts",
+    "tests/browser/**/*.ts",
+    "tests/browser/**/*.tsx",
+    "examples/passkey-device/**/*.tsx"
+  ],
   "exclude": ["node_modules", "dist"]
 }

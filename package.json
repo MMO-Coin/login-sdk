@@ -96,10 +96,11 @@
     "verify:package": "node scripts/verify-package.mjs",
     "verify": "npm run format:check && npm run test:scripts && npm run typecheck && npm run build && npm run typecheck:browser && playwright test && npm test -- --runInBand && node scripts/verify-siws-login.mjs && npm run verify:package && npm run verify:consumer && npm run audit",
     "audit": "npm audit --include=dev --audit-level=low",
-    "test:scripts": "node --test scripts/release-checks.test.mjs",
+    "test:scripts": "node --test scripts/release-checks.test.mjs scripts/passkey-device-options.test.mjs",
     "verify:consumer": "node scripts/verify-consumer.mjs",
     "test:passkeys": "npm run build && playwright test",
-    "typecheck:browser": "tsc --project tsconfig.browser-tests.json --noEmit"
+    "typecheck:browser": "tsc --project tsconfig.browser-tests.json --noEmit",
+    "qa:passkeys": "npm run build && node scripts/passkey-device-server.mjs"
   },
   "dependencies": {
     "@noble/hashes": "2.2.0"
