@@ -1,4 +1,5 @@
 import assert from "node:assert/strict";
+import { packPackage } from "./pack-package.mjs";
 import { execFileSync } from "node:child_process";
 import {
   copyFileSync,
@@ -27,17 +28,15 @@ const temp = realpathSync(tmpdir());
 const work = mkdtempSync(path.join(temp, "mmo-login-consumer-"));
 const env = { ...process.env };
 delete env.NODE_PATH;
-const npm = (args, cwd, capture = false) =>
+const npm = (args, cwd) =>
   execFileSync(process.execPath, [npmCli, ...args], {
     cwd,
     env,
     encoding: "utf8",
-    stdio: capture ? ["ignore", "pipe", "inherit"] : "inherit",
+    stdio: "inherit",
   });
 try {
-  const [pack] = JSON.parse(
-    npm(["pack", "--ignore-scripts", "--json", "--pack-destination", work], root, true),
-  );
+  const pack = packPackage({ cwd: root, destination: work, npmCli, env });
   assert.equal(pack.name, pkg.name);
   assert.equal(pack.version, pkg.version);
   for (const file of pack.files) {

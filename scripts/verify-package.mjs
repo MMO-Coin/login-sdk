@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { execFileSync } from "node:child_process";
+import { packPackage } from "./pack-package.mjs";
 import { existsSync, readFileSync } from "node:fs";
 import { createRequire } from "node:module";
 
@@ -8,13 +8,7 @@ const pkg = JSON.parse(readFileSync(new URL("../package.json", import.meta.url),
 const npmCli = process.env.npm_execpath;
 assert.ok(npmCli, "Run this check with npm run verify:package.");
 
-const [pack] = JSON.parse(
-  execFileSync(process.execPath, [npmCli, "pack", "--dry-run", "--ignore-scripts", "--json"], {
-    cwd: new URL("..", import.meta.url),
-    encoding: "utf8",
-    stdio: ["ignore", "pipe", "pipe"],
-  }),
-);
+const pack = packPackage({ cwd: new URL("..", import.meta.url), dryRun: true, npmCli });
 assert.equal(pack.name, pkg.name);
 assert.equal(pack.version, pkg.version);
 const files = new Set(pack.files.map((file) => file.path));

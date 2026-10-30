@@ -1,5 +1,9 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
+import { mkdtempSync, realpathSync, rmSync, writeFileSync } from "node:fs";
+import { tmpdir } from "node:os";
+import path from "node:path";
+import { packPackage } from "./pack-package.mjs";
 import { runDockerTests } from "./test-docker.mjs";
 
 function fakeCommands(results) {
@@ -65,4 +69,32 @@ test("an aborted test cannot prevent cleanup from running", async () => {
   assert.equal(await runDockerTests({ run: fake.run, signal: controller.signal, onError() {} }), 1);
   assert.equal(fake.calls[1].options.signal, controller.signal);
   assert.equal(fake.calls[2].options.signal, undefined);
+});
+
+test("package JSON stays readable when npm runs a noisy prepare script", () => {
+  const temp = realpathSync(tmpdir());
+  const work = mkdtempSync(path.join(temp, "login-sdk-pack-check-"));
+  try {
+    writeFileSync(
+      path.join(work, "package.json"),
+      JSON.stringify({
+        name: "noisy-pack-fixture",
+        version: "1.0.0",
+        scripts: { prepare: "node prepare.cjs" },
+      }),
+    );
+    writeFileSync(
+      path.join(work, "prepare.cjs"),
+      'console.log("prepare output must not corrupt package JSON");\n',
+    );
+    const pack = packPackage({ cwd: work, dryRun: true });
+    assert.equal(pack.name, "noisy-pack-fixture");
+    assert.equal(pack.version, "1.0.0");
+    assert.ok(pack.files.some((file) => file.path === "package.json"));
+  } finally {
+    const target = path.resolve(work);
+    assert.equal(path.dirname(target), temp);
+    assert.ok(path.basename(target).startsWith("login-sdk-pack-check-"));
+    rmSync(target, { recursive: true, force: true, maxRetries: 5, retryDelay: 100 });
+  }
 });

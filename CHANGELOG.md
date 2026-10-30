@@ -2,6 +2,7 @@
 
 ## 0.6.6
 
+- Keep package verification compatible with npm 10 when prepare writes build output.
 - Show the email or wallet fallback when packaged login UI encounters an authenticator without PRF.
 - Add native Chromium WebAuthn and PRF tests, including reload, cancellation, tampering and logout races.
 - Run passkey browser tests on Linux and Windows, and support manually triggered CI runs.
