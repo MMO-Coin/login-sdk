@@ -60,7 +60,7 @@ export default defineConfig([
       "storage/sql/index": "src/storage/sql/index.ts",
       "next/index": "src/next/index.ts",
     },
-    clean: true,
+    clean: false,
   },
   {
     ...shared,
@@ -71,7 +71,7 @@ export default defineConfig([
       // WebUSB/WebHID, so it belongs in this second (banner) pass.
       "ledger/index": "src/ledger/index.ts",
     },
-    clean: false, // the first pass already cleaned dist
+    clean: false, // scripts/build.mjs cleans once before both passes start.
     // tsup's rollup treeshake pass drops `banner` from the output, so it stays
     // off here — consumers still tree-shake these entries via sideEffects:false.
     treeshake: false,

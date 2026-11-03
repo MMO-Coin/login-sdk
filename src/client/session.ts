@@ -11,7 +11,7 @@
 //    biometric-unlock feature: it re-arms the key from a Touch/Face-ID-gated
 //    wrapped blob, not from a raw key sitting in web storage.
 import { AUTH_TOKEN_HEADER, PUBLIC_KEY_HEADER } from "../core/config.js";
-import type { AuthStatus } from "../core/types.js";
+import type { AuthSessionState, AuthStatus } from "../core/types.js";
 
 const TOKEN_KEY = "ttc-auth-token";
 const PUBKEY_KEY = "ttc-public-key";
@@ -65,6 +65,10 @@ interface VaultState {
   generation: number;
   owner?: { token: string | null; publicKey: string | null } | null;
   invalidationListeners: Set<() => void>;
+  stateListeners?: Set<() => void>;
+  validation?: { token: string; publicKey: string; status: "valid" | "expired" } | null;
+  validationGeneration?: number;
+  lockReason?: AuthSessionState["lockReason"];
 }
 
 const VAULT_STATE_KEY = Symbol.for("tetrac.vault");
@@ -105,6 +109,8 @@ function resolveVaultState(): VaultState {
   // An older SDK bundle may have created the shared slot first.
   state.generation ??= 0;
   state.invalidationListeners ??= new Set();
+  state.validationGeneration ??= 0;
+  state.stateListeners ??= new Set();
   return state;
 }
 
@@ -132,6 +138,72 @@ export class SessionChangedError extends Error {
     super(message);
     this.name = "SessionChangedError";
   }
+}
+
+/** A server-rejected session requires a new login, not just a local unlock. */
+export class SessionExpiredError extends Error {
+  constructor(message = "Your login expired. Sign in again to unlock your wallet.") {
+    super(message);
+    this.name = "SessionExpiredError";
+  }
+}
+
+/**
+ * Bind a validation response to the exact saved token and identity. A late 401
+ * must never lock a newer login, including a new token for the same account.
+ */
+export function captureSessionValidation(): (status: "valid" | "expired") => boolean {
+  const token = getAuthToken();
+  const publicKey = getPublicKey();
+  const generation = vault.validationGeneration;
+  return (status) => {
+    if (
+      !token ||
+      !publicKey ||
+      generation !== vault.validationGeneration ||
+      token !== getAuthToken() ||
+      publicKey !== getPublicKey()
+    )
+      return false;
+    // A late successful response cannot revive a server-rejected token.
+    // Only a new authenticated setSession() may clear that rejection.
+    if (status === "valid" && validationStatus() === "expired") return false;
+    vault.validation = { token, publicKey, status };
+    if (status === "expired") {
+      clearKeyState();
+      vault.lockReason = "session_expired";
+      notify();
+    } else {
+      // Successful validation is not a lock/unlock transition. Existing signer
+      // consumers cancel pending work on subscribeLock(), so keep it separate.
+      notifySessionState();
+    }
+    return true;
+  };
+}
+
+function validationStatus(): AuthSessionState["session"] {
+  const token = getAuthToken();
+  const publicKey = getPublicKey();
+  if (!token || !publicKey) return "absent";
+  const saved = vault.validation;
+  return saved?.token === token && saved.publicKey === publicKey ? saved.status : "unverified";
+}
+
+/** Additive state model. The legacy getAuthStatus() contract is unchanged. */
+export function getSessionState(): AuthSessionState {
+  const session = validationStatus();
+  const locked = isLocked();
+  return {
+    session,
+    vault: locked ? "locked" : "unlocked",
+    lockReason:
+      !locked || session === "absent"
+        ? null
+        : session === "expired"
+          ? "session_expired"
+          : (vault.lockReason ?? "reload"),
+  };
 }
 
 /** Bind pending work to the current session, including changes made in another tab. */
@@ -178,6 +250,19 @@ function runSessionClearHooks(): void {
 
 function notify(): void {
   for (const cb of vault.listeners) cb();
+  notifySessionState();
+}
+
+function notifySessionState(): void {
+  for (const cb of vault.stateListeners ?? []) cb();
+}
+
+/** Subscribe to session validation and local lock state without changing legacy lock events. */
+export function subscribeSessionState(cb: () => void): () => void {
+  vault.stateListeners!.add(cb);
+  return () => {
+    vault.stateListeners!.delete(cb);
+  };
 }
 
 /** Subscribe to lock/unlock transitions. Returns an unsubscribe fn. */
@@ -201,11 +286,11 @@ function bindHideHandler(): void {
   if (!hasWindow() || vault.hideHandlerBound) return;
   vault.hideHandlerBound = true;
   const lockOnHideEvt = (): void => {
-    if (vault.lockOnHide) lockVault(false); // per-tab hide — don't propagate to siblings
+    if (vault.lockOnHide) lockVault(false, "background"); // Per-tab lifecycle event.
   };
   if (typeof document !== "undefined" && typeof document.addEventListener === "function") {
     document.addEventListener("visibilitychange", () => {
-      if (vault.lockOnHide && document.visibilityState === "hidden") lockVault(false);
+      if (vault.lockOnHide && document.visibilityState === "hidden") lockVault(false, "background");
     });
     // Page Lifecycle: a frozen page (bfcache / mobile background) pauses timers, so
     // the idle auto-lock can't fire — lock proactively when the page freezes.
@@ -219,7 +304,7 @@ function bindHideHandler(): void {
     // a back/forward navigation. On restore (event.persisted), force a re-lock — a
     // bfcache restore is a session-continuity break, stronger than an ordinary hide.
     window.addEventListener("pageshow", (e) => {
-      if ((e as PageTransitionEvent).persisted) lockVault(false);
+      if ((e as PageTransitionEvent).persisted) lockVault(false, "background");
     });
     // Cross-tab coordination (CLIENTVAULT-7): a logout removes the auth token from the
     // shared localStorage, and an explicit lock bumps LOCK_SIGNAL_KEY — either fires a
@@ -231,7 +316,11 @@ function bindHideHandler(): void {
         ev.key === null ||
         [TOKEN_KEY, PUBKEY_KEY, EMAIL_KEY, EK_ITER_KEY, EK_ENVELOPE_KEY, LOCK_SIGNAL_KEY].includes(ev.key)
       ) {
-        lockVault(false);
+        if (ev.key !== LOCK_SIGNAL_KEY) {
+          vault.validationGeneration = (vault.validationGeneration ?? 0) + 1;
+          vault.validation = null;
+        }
+        lockVault(false, ev.key === LOCK_SIGNAL_KEY ? "manual" : "session_changed");
       }
     });
   }
@@ -248,7 +337,7 @@ function scheduleLock(): void {
   clearTimer();
   if (!vault.memoryAppKey || vault.lockDeadline == null || !hasWindow()) return;
   const ms = Math.max(0, vault.lockDeadline - nowMs());
-  vault.lockTimer = setTimeout(() => lockVault(false), ms); // idle lock is per-tab — don't propagate
+  vault.lockTimer = setTimeout(() => lockVault(false, "idle"), ms); // Idle lock is per-tab.
 }
 
 /** Drop the key and cancel pending work before a callback can publish a stale result. */
@@ -272,6 +361,7 @@ export function setSession(params: {
 }): void {
   if (!hasWindow()) return;
   const accountChanged = getPublicKey() !== params.publicKey;
+  vault.validationGeneration = (vault.validationGeneration ?? 0) + 1;
   clearKeyState();
   if (accountChanged) runSessionClearHooks();
   localStorage.setItem(TOKEN_KEY, params.authToken);
@@ -283,12 +373,15 @@ export function setSession(params: {
   } else localStorage.removeItem(EK_ITER_KEY);
   if (params.offchainEnvelope) localStorage.setItem(EK_ENVELOPE_KEY, params.offchainEnvelope);
   else localStorage.removeItem(EK_ENVELOPE_KEY);
+  vault.validation = { token: params.authToken, publicKey: params.publicKey, status: "valid" };
   armAppKey(params.appKey);
 }
 
 /** Install/refresh the app key and (re)start the auto-lock window. Fires listeners. */
 export function armAppKey(appKey: string): void {
+  if (validationStatus() === "expired") throw new SessionExpiredError();
   vault.memoryAppKey = appKey;
+  vault.lockReason = null;
   vault.owner = { token: getAuthToken(), publicKey: getPublicKey() };
   vault.lockDeadline = nowMs() + vault.autoLockMs;
   scheduleLock();
@@ -310,8 +403,9 @@ export function touchVault(): void {
  * freeze, bfcache restore) pass false: they are per-tab events and must NOT lock a
  * sibling tab that is still in active use.
  */
-export function lockVault(propagate = true): void {
+export function lockVault(propagate = true, reason: AuthSessionState["lockReason"] = "manual"): void {
   clearKeyState();
+  vault.lockReason = reason;
   if (propagate && hasWindow()) {
     try {
       localStorage.setItem(LOCK_SIGNAL_KEY, String(nowMs()));
@@ -329,13 +423,20 @@ export function lockVault(propagate = true): void {
  * safety net for when timers were paused, e.g. a backgrounded/frozen tab).
  */
 export function isLocked(): boolean {
+  if (validationStatus() === "expired") {
+    if (vault.memoryAppKey) clearKeyState();
+    vault.lockReason = "session_expired";
+    return true;
+  }
   if (!vault.memoryAppKey) return true;
   if (vault.owner && (vault.owner.token !== getAuthToken() || vault.owner.publicKey !== getPublicKey())) {
     clearKeyState();
+    vault.lockReason = "session_changed";
     return true;
   }
   if (vault.lockDeadline != null && nowMs() > vault.lockDeadline) {
     clearKeyState(); // silent — the scheduled timer fires the notify
+    vault.lockReason = "idle";
     return true;
   }
   return false;
@@ -349,6 +450,7 @@ export function isLocked(): boolean {
  * Re-hydration still happens via isLocked()/getAppKey() on the actual use path.
  */
 export function lockSnapshot(): boolean {
+  if (validationStatus() === "expired") return false;
   if (!vault.memoryAppKey) return false;
   if (vault.owner && (vault.owner.token !== getAuthToken() || vault.owner.publicKey !== getPublicKey()))
     return false;
@@ -389,7 +491,10 @@ export function getAppKey(): string | null {
 }
 
 export function clearSession(): void {
+  vault.validationGeneration = (vault.validationGeneration ?? 0) + 1;
   clearKeyState();
+  vault.validation = null;
+  vault.lockReason = null;
   if (hasWindow()) {
     localStorage.removeItem(TOKEN_KEY);
     localStorage.removeItem(PUBKEY_KEY);

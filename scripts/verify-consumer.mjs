@@ -41,7 +41,8 @@ try {
   assert.equal(pack.version, pkg.version);
   for (const file of pack.files) {
     assert.ok(
-      file.path.startsWith("dist/") || ["README.md", "LICENSE", "package.json"].includes(file.path),
+      file.path.startsWith("dist/") ||
+        ["README.md", "RECOVERY.md", "LICENSE", "package.json"].includes(file.path),
       "Unexpected package file: " + file.path,
     );
   }
@@ -87,7 +88,7 @@ try {
       [
         'export { AuthProvider, useAuth } from "@mmo-coin/login-sdk/react";',
         'export { LoginPanel } from "@mmo-coin/login-sdk/ui";',
-        'export { createAuthClient, getAppKey } from "@mmo-coin/login-sdk/client";',
+        'export { createAuthClient, getAppKey, getSessionState, parseRecoveryKit, serializeRecoveryKit } from "@mmo-coin/login-sdk/client";',
       ].join("\n"),
     );
     writeFileSync(
@@ -96,8 +97,14 @@ try {
         'import React from "react";',
         'import { AuthProvider, type AuthProviderProps } from "@mmo-coin/login-sdk/react";',
         'import { LoginPanel } from "@mmo-coin/login-sdk/ui";',
+        'import { createAuthClient, serializeRecoveryKit, getSessionState, type RecoveryKit, type RecoveryVerification } from "@mmo-coin/login-sdk/client";',
         'const props: AuthProviderProps = { apiBaseUrl: "/auth", config: { appId: "consumer-test" }, children: <LoginPanel methods={["email"]} /> };',
         "export const app = <AuthProvider {...props} />;",
+        'const client = createAuthClient({ apiBaseUrl: "/auth", config: { appId: "consumer-test", origin: "https://consumer.example" } });',
+        "export const createBackup = (passphrase: string, signal?: AbortSignal) => client.createRecoveryKit({ passkey: passphrase }, { signal });",
+        "export const checkBackup = (kit: RecoveryKit, code: string): Promise<RecoveryVerification> => client.verifyRecoveryKit(serializeRecoveryKit(kit), code);",
+        "export const recover = (kit: RecoveryKit, code: string, signal?: AbortSignal) => client.recoverWithKit({ kit, recoveryCode: code, signal });",
+        "export const session = getSessionState();",
       ].join("\n"),
     );
     npm(["install", "--legacy-peer-deps=false", "--strict-peer-deps", "--no-audit", "--no-fund"], cwd);

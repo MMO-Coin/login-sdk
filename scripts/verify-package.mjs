@@ -12,10 +12,10 @@ const pack = packPackage({ cwd: new URL("..", import.meta.url), dryRun: true, np
 assert.equal(pack.name, pkg.name);
 assert.equal(pack.version, pkg.version);
 const files = new Set(pack.files.map((file) => file.path));
-for (const file of ["package.json", "README.md", "LICENSE"]) assert.ok(files.has(file), file);
+for (const file of ["package.json", "README.md", "RECOVERY.md", "LICENSE"]) assert.ok(files.has(file), file);
 for (const file of files) {
   assert.ok(
-    file.startsWith("dist/") || ["package.json", "README.md", "LICENSE"].includes(file),
+    file.startsWith("dist/") || ["package.json", "README.md", "RECOVERY.md", "LICENSE"].includes(file),
     "Unexpected package file: " + file,
   );
 }
@@ -68,6 +68,18 @@ const authClient = client.createAuthClient({
   apiBaseUrl: "/auth",
   config: { appId: "package-smoke", origin: "https://smoke.example" },
 });
+for (const runtime of [client, commonJsClient]) {
+  assert.equal(runtime.MAX_RECOVERY_KIT_BYTES, 65_536);
+  assert.equal(typeof runtime.serializeRecoveryKit, "function");
+  assert.equal(typeof runtime.parseRecoveryKit, "function");
+  assert.equal(typeof runtime.getSessionState, "function");
+  const instance = runtime.createAuthClient({
+    apiBaseUrl: "/auth",
+    config: { appId: "package-smoke", origin: "https://smoke.example" },
+  });
+  for (const method of ["createRecoveryKit", "verifyRecoveryKit", "recoverWithKit"])
+    assert.equal(typeof instance[method], "function", method);
+}
 let finishDerivation;
 authClient.deriveAppKey = () =>
   new Promise((resolve) => {

@@ -5,10 +5,11 @@ import type { UserData } from "../core/types.js";
 export interface UseUserResult {
   user: UserData | null;
   loading: boolean;
+  error: Error | null;
   refetch: () => Promise<void>;
 }
 
 export function useUser(): UseUserResult {
-  const { user, userLoading, refetchUser } = useAuthContext();
-  return { user, loading: userLoading, refetch: refetchUser };
+  const { user, userLoading, userError, refetchUser } = useAuthContext();
+  return { user, loading: userLoading, error: userError, refetch: refetchUser };
 }

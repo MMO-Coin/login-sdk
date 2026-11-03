@@ -13,3 +13,5 @@ coverage/
 output/playwright/
 
 output/passkey-device/
+
+/output/

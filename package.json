@@ -1,6 +1,6 @@
 {
   "name": "@mmo-coin/login-sdk",
-  "version": "0.6.6",
+  "version": "0.7.0",
   "description": "Email, Solana wallet, and passkey authentication with encrypted Solana and EVM wallets. Host your own API and database.",
   "license": "MIT",
   "homepage": "https://github.com/MMO-Coin/login-sdk#readme",
@@ -14,7 +14,8 @@
   "type": "module",
   "sideEffects": false,
   "files": [
-    "dist"
+    "dist",
+    "RECOVERY.md"
   ],
   "main": "./dist/index.cjs",
   "module": "./dist/index.js",
@@ -77,7 +78,7 @@
     }
   },
   "scripts": {
-    "build": "tsup",
+    "build": "node scripts/build.mjs",
     "dev": "tsup --watch",
     "typecheck": "tsc --noEmit",
     "format": "prettier --write .",

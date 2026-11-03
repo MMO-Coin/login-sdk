@@ -103,6 +103,11 @@ locks. The client exports `SessionChangedError` for these cancellations. Check
 signing in or unlocking again. Revealed keys and cached wallet records clear when the
 account changes.
 
+Email and biometric accounts can create an encrypted recovery kit after fresh authentication.
+The file and independently generated code restore the same wallet addresses through the existing
+login API. No passphrase reset or wallet replacement is involved. See [encrypted recovery](./RECOVERY.md)
+for backup verification, integration and limits.
+
 ## Configuration
 
 `config` is a deep-partial of `AuthConfig`, accepted by both `createNextAuthRoutes` and

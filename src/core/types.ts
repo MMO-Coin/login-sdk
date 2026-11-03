@@ -28,6 +28,14 @@ export type AuthMethod = "email" | "wallet" | "biometric";
 /** Client-facing auth status, mirroring next-ttc's getAuthStatus(). */
 export type AuthStatus = "authenticated" | "session_expired" | "unauthenticated";
 
+/** Server session validity and local key availability are independent states. */
+export interface AuthSessionState {
+  /** A saved token is unverified until the current browser validates it. */
+  session: "absent" | "unverified" | "valid" | "expired";
+  vault: "locked" | "unlocked";
+  lockReason: "reload" | "manual" | "idle" | "background" | "session_changed" | "session_expired" | null;
+}
+
 /** Every (chain, role) slot a user record may hold — the record's fixed upper bound. */
 export const WALLET_SLOTS: ReadonlyArray<{ chain: Chain; role: WalletRole }> = [
   { chain: "solana", role: "funds" },

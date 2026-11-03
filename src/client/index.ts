@@ -15,16 +15,22 @@ export {
   getEmail,
   getAppKey,
   getAuthStatus,
+  getSessionState,
+  captureSessionValidation,
   authHeaders,
   armAppKey,
   touchVault,
   lockVault,
   isLocked,
   subscribeLock,
+  subscribeSessionState,
+  subscribeSessionInvalidation,
   configureVault,
   VaultLockedError,
   SessionChangedError,
+  SessionExpiredError,
 } from "./session.js";
+export type { AuthSessionState } from "../core/types.js";
 export {
   isBiometricAvailable,
   registerPasskey,
@@ -46,3 +52,11 @@ export {
   type WalletGenConfig,
   type ReauthCredentials,
 } from "./authClient.js";
+export {
+  MAX_RECOVERY_KIT_BYTES,
+  parseRecoveryKit,
+  serializeRecoveryKit,
+  type RecoveryKit,
+  type RecoveryVerification,
+  type CreatedRecoveryKit,
+} from "./recovery.js";

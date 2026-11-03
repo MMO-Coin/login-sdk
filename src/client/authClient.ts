@@ -32,12 +32,22 @@ import {
   authHeaders,
   armAppKey,
   getAuthToken,
+  getPublicKey,
   getEmail,
   getPbkdf2Iterations,
   getOffchainEnvelope,
   configureVault,
   captureSessionGuard,
+  captureSessionValidation,
+  SessionChangedError,
 } from "./session.js";
+import {
+  createEncryptedRecoveryKit,
+  openRecoveryKit,
+  verifyRecoveredUser,
+  type CreatedRecoveryKit,
+  type RecoveryVerification,
+} from "./recovery.js";
 import { registerPasskey, derivePasskeySecret, type PasskeyRegistration } from "./webauthn.js";
 import {
   enableBiometricUnlock,
@@ -280,7 +290,7 @@ export class AuthClient {
     }
   }
 
-  private async post<T>(path: string, body: unknown, withAuth = false): Promise<T> {
+  private async post<T>(path: string, body: unknown, withAuth = false, signal?: AbortSignal): Promise<T> {
     const assertCurrent = captureSessionGuard();
     const res = await fetch(`${this.opts.apiBaseUrl}/${path}`, {
       method: "POST",
@@ -288,6 +298,7 @@ export class AuthClient {
       // appId rides in the body of every auth-flow call so the server scopes this
       // app's records within a shared Redis/Upstash DB (multi-app, v0.4.0).
       body: JSON.stringify({ appId: this.config.appId, ...(body as Record<string, unknown>) }),
+      ...(signal ? { signal } : {}),
     });
     assertCurrent();
     const data = await res.json().catch(() => ({}));
@@ -305,11 +316,128 @@ export class AuthClient {
 
   /** Fetch the authenticated user's full record (identity + encrypted wallets). */
   async fetchUserData(): Promise<UserData | null> {
+    const expectedPublicKey = getPublicKey();
+    const recordValidation = captureSessionValidation();
     const res = await fetch(`${this.opts.apiBaseUrl}/user-data`, { headers: this.authHeaders() });
-    if (res.status === 401) return null;
+    if (res.status === 401) {
+      recordValidation("expired");
+      return null;
+    }
     if (!res.ok) throw new ApiError(`user-data failed (${res.status})`, res.status);
     const data = (await res.json().catch(() => ({}))) as { user?: UserData };
-    return data.user ?? null;
+    if (!data.user || data.user.publicKey !== expectedPublicKey || data.user.appId !== this.config.appId) {
+      throw new ApiError("user-data returned an unexpected account", 502);
+    }
+    if (!recordValidation("valid")) throw new SessionChangedError();
+    return data.user;
+  }
+
+  /**
+   * Freshly reauthenticate and encrypt a portable copy of this account's existing
+   * vault key and wallet ciphertexts. Does not unlock or extend the current vault.
+   * Store the generated code separately from the encrypted file. Their combination
+   * grants permanent wallet access; logging out does not revoke a downloaded kit.
+   */
+  async createRecoveryKit(
+    creds: ReauthCredentials,
+    options: { signal?: AbortSignal } = {},
+  ): Promise<CreatedRecoveryKit> {
+    const sessionCurrent = captureSessionGuard();
+    const assertCurrent = () => {
+      options.signal?.throwIfAborted();
+      sessionCurrent();
+    };
+    assertCurrent();
+    const user = await this.fetchUserData();
+    assertCurrent();
+    if (!user) throw new ApiError("Sign in before creating a recovery kit", 401);
+    const appKey = await this.deriveAppKey(creds);
+    assertCurrent();
+    const result = await createEncryptedRecoveryKit(user, appKey, this.clientOrigin());
+    assertCurrent();
+    return result;
+  }
+
+  /** Locally decrypt and check a kit without signing in, arming keys or changing wallets. */
+  async verifyRecoveryKit(
+    kit: unknown,
+    recoveryCode: string,
+    options: { signal?: AbortSignal } = {},
+  ): Promise<RecoveryVerification> {
+    const sessionCurrent = captureSessionGuard();
+    const assertCurrent = () => {
+      options.signal?.throwIfAborted();
+      sessionCurrent();
+    };
+    assertCurrent();
+    const result = await openRecoveryKit(kit, recoveryCode, this.config.appId, this.clientOrigin());
+    assertCurrent();
+    return result.verification;
+  }
+
+  /**
+   * Sign in to an EXISTING email/biometric account with a verified recovery kit.
+   * Requires the account database to remain available. This never registers an
+   * account, resets a passphrase, imports keys, or replaces any wallet address.
+   */
+  async recoverWithKit(params: {
+    kit: unknown;
+    recoveryCode: string;
+    signal?: AbortSignal;
+  }): Promise<AuthResult> {
+    const sessionCurrent = captureSessionGuard();
+    const assertCurrent = () => {
+      params.signal?.throwIfAborted();
+      sessionCurrent();
+    };
+    assertCurrent();
+    const { payload } = await openRecoveryKit(
+      params.kit,
+      params.recoveryCode,
+      this.config.appId,
+      this.clientOrigin(),
+    );
+    assertCurrent();
+    const currentIdentity = getPublicKey();
+    if (currentIdentity && currentIdentity !== payload.user.publicKey) {
+      throw new Error("Log out of the current account before recovering another account");
+    }
+    const { challenge } = await this.post<{ challenge: string }>(
+      "challenge",
+      { email: payload.user.email },
+      false,
+      params.signal,
+    );
+    assertCurrent();
+    if (typeof challenge !== "string" || challenge.length < 16 || challenge.length > 2_048)
+      throw new Error("Invalid recovery login challenge");
+    const signature = signAuthChallenge(payload.appKey, challenge);
+    const result = await this.post<AuthResult>(
+      "login",
+      { email: payload.user.email, signature, challenge },
+      false,
+      params.signal,
+    );
+    assertCurrent();
+    if (
+      result.publicKey !== payload.user.publicKey ||
+      typeof result.authToken !== "string" ||
+      !/^[0-9a-f]{64}$/i.test(result.authToken) ||
+      !result.user
+    ) {
+      throw new Error("The server account does not match this recovery kit");
+    }
+    await verifyRecoveredUser(result.user, payload);
+    assertCurrent();
+    setSession({
+      publicKey: result.publicKey,
+      authToken: result.authToken,
+      appKey: payload.appKey,
+      ...(payload.user.authMethod === "email"
+        ? { email: payload.user.email, pbkdf2Iterations: result.user.pbkdf2Iterations }
+        : {}),
+    });
+    return result;
   }
 
   // --- Email + passkey ---
